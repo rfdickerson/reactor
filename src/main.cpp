@@ -1,12 +1,11 @@
-#include <iostream>
-
 
 #include "VulkanContext.hpp"
+#include "VulkanRenderer.hpp"
+#include "Window.hpp"
 
 int main() {
-    std::cout << "Hello, World!" << std::endl;
 
-    reactor::VulkanContext context;
+    reactor::VulkanRenderer renderer;
 
     return 0;
 }

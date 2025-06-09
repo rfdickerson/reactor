@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "VulkanContext.hpp"
+#include "Window.hpp"
 
 namespace reactor {
 
@@ -19,6 +20,7 @@ public:
 
 private:
     std::unique_ptr<VulkanContext> m_context;
+    std::unique_ptr<Window> m_window;
 };
 
 }

@@ -22,7 +22,7 @@ struct QueueFamilyIndices {
 
 class VulkanContext {
 public:
-    VulkanContext();
+    VulkanContext(GLFWwindow* window);
 
     ~VulkanContext();
 

@@ -15,8 +15,10 @@ add_executable(Reactor src/main.cpp
         src/VulkanContext.hpp
         src/pch.hpp
         src/VulkanRenderer.hpp
-        src/VulkanRenderer.cpp)
+        src/VulkanRenderer.cpp
+        src/Window.cpp
+        src/Window.hpp)
 
-target_link_libraries(Reactor Vulkan::Vulkan Vulkan::Headers glfw spdlog::spdlog)
+target_link_libraries(Reactor Vulkan::Vulkan Vulkan::Headers glfw fmt::fmt spdlog::spdlog)
 
 target_precompile_headers(Reactor PRIVATE src/pch.hpp)
