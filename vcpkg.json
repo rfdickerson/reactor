@@ -1,0 +1,11 @@
+{
+  "name" : "untitled4",
+  "version-string" : "1.0.0",
+  "dependencies" : [
+    "fmt",
+    "spdlog",
+    "vulkan-headers",
+    "vulkan-memory-allocator",
+    "glfw3"
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "win32-gcc-x64-mingw",
+      "displayName": "Win32 GCC x64 MinGW",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/win32-gcc-x64-mingw",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-mingw-dynamic",
+        "CMAKE_MAKE_PROGRAM": "C:/msys64/ucrt64/bin/ninja",
+        "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -Werror",
+        "CMAKE_BUILD_TYPE": "Debug"
+      },
+      "environment": {
+        "VCPKG_DEFAULT_TRIPLET": "x64-mingw-dynamic",
+        "VCPKG_DEFAULT_HOST_TRIPLET": "x64-mingw-dynamic"
+      }
+    },
+    {
+      "name": "macos-clang-x64",
+      "displayName": "macOS Clang x64",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-clang-x64",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-osx",
+        "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -Werror",
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "win32-gcc-x64-mingw-debug",
+      "displayName": "Win32 GCC x64 MinGW",
+      "configurePreset": "win32-gcc-x64-mingw",
+      "description": "Build for Win32 GCC x64 MinGW",
+      "configuration": "Debug"
+    },
+    {
+      "name": "macos-clang-x64-debug",
+      "displayName": "macOS Clang x64 Debug",
+      "configurePreset": "macos-clang-x64",
+      "description": "Build for macOS Clang x64",
+      "configuration": "Debug"
+    }
+
+  ]
+}
