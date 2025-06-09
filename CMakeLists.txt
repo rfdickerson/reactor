@@ -11,7 +11,9 @@ find_package(VulkanHeaders CONFIG)
 add_executable(Reactor src/main.cpp
         src/vulkan_context.cpp
         src/vulkan_context.hpp
-        src/pch.hpp)
+        src/pch.hpp
+        src/VulkanRenderer.hpp
+        src/VulkanRenderer.cpp)
 target_link_libraries(Reactor Vulkan::Vulkan Vulkan::Headers)
 
 target_precompile_headers(Reactor PRIVATE src/pch.hpp)
