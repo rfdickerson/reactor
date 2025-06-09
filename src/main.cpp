@@ -1,7 +1,7 @@
 #include <iostream>
 
 
-#include "vulkan_context.hpp"
+#include "VulkanContext.hpp"
 
 int main() {
     std::cout << "Hello, World!" << std::endl;

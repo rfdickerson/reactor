@@ -7,13 +7,16 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(Vulkan REQUIRED)
 find_package(VulkanHeaders CONFIG)
+find_package(glfw3 CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
 
 add_executable(Reactor src/main.cpp
-        src/vulkan_context.cpp
-        src/vulkan_context.hpp
+        src/VulkanContext.cpp
+        src/VulkanContext.hpp
         src/pch.hpp
         src/VulkanRenderer.hpp
         src/VulkanRenderer.cpp)
-target_link_libraries(Reactor Vulkan::Vulkan Vulkan::Headers)
+
+target_link_libraries(Reactor Vulkan::Vulkan Vulkan::Headers glfw spdlog::spdlog)
 
 target_precompile_headers(Reactor PRIVATE src/pch.hpp)

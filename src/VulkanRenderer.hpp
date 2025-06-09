@@ -6,7 +6,7 @@
 #define VULKANRENDERER_HPP
 #include <memory>
 
-#include "vulkan_context.hpp"
+#include "VulkanContext.hpp"
 
 namespace reactor {
 

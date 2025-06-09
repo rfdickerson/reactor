@@ -31,8 +31,8 @@ public:
     VulkanContext(VulkanContext&&) = delete;
     VulkanContext& operator=(VulkanContext&&) = delete;
 
-    vk::Instance instance() const { return m_instance; }
-    vk::PhysicalDevice physicalDevice() const { return m_physicalDevice; }
+    [[nodiscard]] vk::Instance instance() const { return m_instance; }
+    [[nodiscard]] vk::PhysicalDevice physicalDevice() const { return m_physicalDevice; }
     vk::Device device() const { return m_device; }
     vk::SurfaceKHR surface() const { return m_surface; }
     vk::Queue graphicsQueue() const { return m_graphicsQueue; }
