@@ -50,8 +50,7 @@ void VulkanContext::createInstance() {
     const char** glfwExtensions;
     glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-    std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-
+    std::vector extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
     // add the GLFW extensions
 
@@ -160,14 +159,17 @@ void VulkanContext::createLogicalDevice() {
 
     vk::PhysicalDeviceFeatures deviceFeatures{}; // No special features for now
 
+    std::vector<const char*> deviceExtensions = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+    };
+
     vk::DeviceCreateInfo createInfo{};
     createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
     createInfo.pQueueCreateInfos = queueCreateInfos.data();
     createInfo.pEnabledFeatures = &deviceFeatures;
 
-    // Device extensions (none for now, but will be needed for swap chain)
-    createInfo.setEnabledExtensionCount(0);
-    createInfo.ppEnabledExtensionNames = nullptr;
+    createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+    createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
     #ifdef __APPLE__
     // Required for MoltenVK

@@ -17,7 +17,11 @@ add_executable(Reactor src/main.cpp
         src/VulkanRenderer.hpp
         src/VulkanRenderer.cpp
         src/Window.cpp
-        src/Window.hpp)
+        src/Window.hpp
+        src/Swapchain.hpp
+        src/FrameManager.hpp
+        src/Swapchain.cpp
+        src/FrameManager.cpp)
 
 target_link_libraries(Reactor Vulkan::Vulkan Vulkan::Headers glfw fmt::fmt spdlog::spdlog)
 
