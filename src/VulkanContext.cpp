@@ -159,8 +159,12 @@ void VulkanContext::createLogicalDevice() {
 
     vk::PhysicalDeviceFeatures deviceFeatures{}; // No special features for now
 
+    vk::PhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures{};
+    dynamicRenderingFeatures.dynamicRendering = VK_TRUE;
+
     std::vector<const char*> deviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME
     };
 
     vk::DeviceCreateInfo createInfo{};
@@ -170,6 +174,7 @@ void VulkanContext::createLogicalDevice() {
 
     createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+    createInfo.pNext = &dynamicRenderingFeatures;
 
     #ifdef __APPLE__
     // Required for MoltenVK

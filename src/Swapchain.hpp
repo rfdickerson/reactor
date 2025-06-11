@@ -21,6 +21,7 @@ namespace reactor {
         [[nodiscard]] vk::Format getFormat() const { return m_format; }
         [[nodiscard]] vk::Extent2D getExtent() const { return m_extent; }
         [[nodiscard]] const std::vector<vk::ImageView>& getImageViews() const { return m_imageViews; }
+        [[nodiscard]] const std::vector<vk::Image>& getImages() const { return m_images; }
 
         void recreate();
 

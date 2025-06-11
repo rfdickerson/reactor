@@ -10,6 +10,7 @@
 #include "Window.hpp"
 #include "Swapchain.hpp"
 #include "FrameManager.hpp"
+#include "Pipeline.hpp"
 
 namespace reactor {
 
@@ -27,6 +28,7 @@ private:
     std::unique_ptr<Window> m_window;
     std::unique_ptr<Swapchain> m_swapchain;
     std::unique_ptr<FrameManager> m_frameManager;
+    std::unique_ptr<Pipeline> m_pipeline;
 };
 
 }
