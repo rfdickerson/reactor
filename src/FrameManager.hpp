@@ -11,14 +11,12 @@ namespace reactor {
     // Using the Frame struct from our previous discussion
     struct Frame {
         vk::CommandBuffer commandBuffer;
-        vk::Semaphore imageAvailableSemaphore;
-        vk::Semaphore renderFinishedSemaphore;
         vk::Fence inFlightFence;
     };
 
     class FrameManager {
     public:
-        FrameManager(vk::Device device, uint32_t commandQueueFamilyIndex, size_t maxFramesInFlight);
+        FrameManager(vk::Device device, uint32_t commandQueueFamilyIndex, size_t maxFramesInFlight, uint32_t swapchainImageCount);
         ~FrameManager();
 
         // Methods to orchestrate the frame lifecycle
@@ -31,6 +29,9 @@ namespace reactor {
         vk::Device m_device;
         vk::CommandPool m_commandPool;
         std::vector<Frame> m_frames;
+        std::vector<vk::Semaphore> m_imageAvailableSemaphores;
+        std::vector<vk::Semaphore> m_renderFinishedSemaphores;
+        std::vector<vk::Fence> m_imagesInFlight;
         size_t m_currentFrame = 0;
     };
 }

@@ -21,6 +21,7 @@ VulkanContext::VulkanContext(GLFWwindow* window) {
 
 VulkanContext::~VulkanContext() {
     m_device.destroy();
+    m_instance.destroySurfaceKHR(m_surface);
     m_instance.destroy();
 }
 
