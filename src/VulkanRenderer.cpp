@@ -102,7 +102,7 @@ namespace reactor {
             imageBarrier.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
 
             cmd.pipelineBarrier(
-                vk::PipelineStageFlagBits::eTopOfPipe,
+                vk::PipelineStageFlagBits::eColorAttachmentOutput,
                 vk::PipelineStageFlagBits::eColorAttachmentOutput,
                 {},
                 nullptr, nullptr, imageBarrier
@@ -153,7 +153,7 @@ namespace reactor {
 
             cmd.pipelineBarrier(
                 vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                vk::PipelineStageFlagBits::eBottomOfPipe,
+                vk::PipelineStageFlagBits::eColorAttachmentOutput,
                 {},
                 nullptr, nullptr, barrier
             );
