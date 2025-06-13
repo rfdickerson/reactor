@@ -32,7 +32,7 @@ namespace reactor {
         std::vector<vk::Semaphore> m_imageAvailableSemaphores;
         std::vector<vk::Semaphore> m_renderFinishedSemaphores;
         std::vector<vk::Fence> m_imagesInFlight;
-        size_t m_currentFrame = 0;
+        size_t m_currentFrame;
     };
 }
 #endif //FRAMEMANAGER_HPP

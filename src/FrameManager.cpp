@@ -68,7 +68,10 @@ FrameManager::~FrameManager() {
 }
 
 bool FrameManager::beginFrame(vk::SwapchainKHR swapchain, uint32_t& outImageIndex) {
-   m_device.waitForFences(m_frames[m_currentFrame].inFlightFence, VK_TRUE, UINT64_MAX);
+   vk::Result result = m_device.waitForFences(m_frames[m_currentFrame].inFlightFence, VK_TRUE, UINT64_MAX);
+    if (result != vk::Result::eSuccess) {
+        throw std::runtime_error("Failed to wait for fence!");
+    }
 
     auto resultValue = m_device.acquireNextImageKHR(
         swapchain,
@@ -79,11 +82,12 @@ bool FrameManager::beginFrame(vk::SwapchainKHR swapchain, uint32_t& outImageInde
 
     if (resultValue.result == vk::Result::eErrorOutOfDateKHR) {
         return false;
-    } else if (resultValue.result != vk::Result::eSuccess && resultValue.result != vk::Result::eSuboptimalKHR) {
-        throw std::runtime_error("Failed to acquire swapchain image!");
     }
+   if (resultValue.result != vk::Result::eSuccess && resultValue.result != vk::Result::eSuboptimalKHR) {
+       throw std::runtime_error("Failed to acquire swapchain image!");
+   }
 
-    outImageIndex = resultValue.value;
+   outImageIndex = resultValue.value;
 
     if (m_imagesInFlight[outImageIndex] != VK_NULL_HANDLE) {
         m_device.waitForFences(m_imagesInFlight[outImageIndex], VK_TRUE, UINT64_MAX);
@@ -116,7 +120,13 @@ void FrameManager::endFrame(vk::Queue graphicsQueue, vk::Queue presentQueue, vk:
         1, &swapchain,
         &imageIndex
     };
-    presentQueue.presentKHR(presentInfo);
+
+    vk::Result result = presentQueue.presentKHR(presentInfo);
+    if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR) {
+        // Handle swapchain recreation here
+    } else if (result != vk::Result::eSuccess) {
+        throw std::runtime_error("Failed to present swapchain image!");
+    }
 
     // Advance to next frame
     m_currentFrame = (m_currentFrame + 1) % m_frames.size();
