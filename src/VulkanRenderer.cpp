@@ -17,12 +17,24 @@ namespace reactor {
         std::string vertShaderPath = "../shaders/triangle.vert.spv";
         std::string fragShaderPath = "../shaders/triangle.frag.spv";
 
+        std::vector bindings = {
+            vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex),
+        };
+
+        m_descriptorSet = std::make_unique<DescriptorSet>(
+            m_context->device(),
+            2,
+            bindings
+            );
+
+        std::vector setLayouts = { m_descriptorSet->getLayout() };
 
         m_pipeline = std::make_unique<Pipeline>(
             m_context->device(),
             vk::Format::eB8G8R8A8Srgb,
             vertShaderPath,
-            fragShaderPath);
+            fragShaderPath,
+            setLayouts);
     }
 
     VulkanRenderer::~VulkanRenderer() {

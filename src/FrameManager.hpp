@@ -12,6 +12,7 @@ namespace reactor {
     struct Frame {
         vk::CommandBuffer commandBuffer;
         vk::Fence inFlightFence;
+        vk::DescriptorSet cameraDescriptorSet;
     };
 
     class FrameManager {

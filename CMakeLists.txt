@@ -23,7 +23,9 @@ add_executable(Reactor src/main.cpp
         src/Swapchain.cpp
         src/FrameManager.cpp
         src/Pipeline.cpp
-        src/Pipeline.hpp)
+        src/Pipeline.hpp
+        src/DescriptorSet.cpp
+        src/DescriptorSet.hpp)
 
 target_link_libraries(Reactor Vulkan::Vulkan Vulkan::Headers glfw fmt::fmt spdlog::spdlog)
 

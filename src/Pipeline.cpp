@@ -23,7 +23,7 @@ vk::ShaderModule Pipeline::createShaderModule(const std::vector<char>& code) {
 }
 
 Pipeline::Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
-                   const std::string& vertShaderPath, const std::string& fragShaderPath)
+                   const std::string& vertShaderPath, const std::string& fragShaderPath, const std::vector<vk::DescriptorSetLayout>& setLayouts)
     : m_device(device)
 {
     // 1. Read shader code from files
@@ -88,6 +88,9 @@ Pipeline::Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
 
     // 9. Pipeline layout
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(setLayouts.size());
+    pipelineLayoutInfo.pSetLayouts = setLayouts.data();
+
     m_pipelineLayout = m_device.createPipelineLayout(pipelineLayoutInfo);
 
     // 10. Dynamic state (viewport and scissor set in command buffer)
