@@ -7,6 +7,9 @@ namespace reactor {
         // create the window first
         m_window = std::make_unique<Window>(1280, 720, "Reactor");
         m_context = std::make_unique<VulkanContext>(m_window->getNativeWindow());
+
+        m_allocator = std::make_unique<Allocator>( m_context->physicalDevice(), m_context->device(), m_context->instance());
+
         m_swapchain = std::make_unique<Swapchain>(
             m_context->device(),
             m_context->physicalDevice(),

@@ -6,6 +6,7 @@
 #define VULKANRENDERER_HPP
 #include <memory>
 
+#include "Allocator.hpp"
 #include "DescriptorSet.hpp"
 #include "VulkanContext.hpp"
 #include "Window.hpp"
@@ -28,6 +29,7 @@ private:
     std::unique_ptr<VulkanContext> m_context;
     std::unique_ptr<Window> m_window;
     std::unique_ptr<Swapchain> m_swapchain;
+    std::unique_ptr<Allocator> m_allocator;
     std::unique_ptr<FrameManager> m_frameManager;
     std::unique_ptr<DescriptorSet> m_descriptorSet;
     std::unique_ptr<Pipeline> m_pipeline;
