@@ -20,7 +20,9 @@ namespace reactor {
             m_context->physicalDevice(),
             m_context->surface(), *m_window);
 
-        m_frameManager = std::make_unique<FrameManager>(m_context->device(), *m_allocator, 0, 2, m_swapchain->getImageViews().size());
+        uint32_t swapchainImageCount = m_swapchain->getImageViews().size();
+
+        m_frameManager = std::make_unique<FrameManager>(m_context->device(), *m_allocator, 0, 2, swapchainImageCount);
 
         std::string vertShaderPath = "../shaders/triangle.vert.spv";
         std::string fragShaderPath = "../shaders/triangle.frag.spv";
