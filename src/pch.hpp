@@ -21,5 +21,6 @@
 #include <spdlog/spdlog.h>
 
 #include <vk_mem_alloc.h>
+#include <glm/glm.hpp>
 
 #endif //PCH_HPP

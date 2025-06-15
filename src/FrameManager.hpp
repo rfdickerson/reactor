@@ -7,17 +7,26 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include "Buffer.hpp"
+
 namespace reactor {
     // Using the Frame struct from our previous discussion
     struct Frame {
         vk::CommandBuffer commandBuffer;
         vk::Fence inFlightFence;
         vk::DescriptorSet cameraDescriptorSet;
+        std::unique_ptr<Buffer> uniformBuffer;
     };
 
     class FrameManager {
     public:
-        FrameManager(vk::Device device, uint32_t commandQueueFamilyIndex, size_t maxFramesInFlight, uint32_t swapchainImageCount);
+        FrameManager(
+            vk::Device device,
+            Allocator& allocator,
+            uint32_t commandQueueFamilyIndex,
+            size_t maxFramesInFlight,
+            uint32_t swapchainImageCount);
+
         ~FrameManager();
 
         // Methods to orchestrate the frame lifecycle
@@ -25,6 +34,7 @@ namespace reactor {
         void endFrame(vk::Queue graphicsQueue, vk::Queue presentQueue, vk::SwapchainKHR swapchain, uint32_t imageIndex); // Handles submit/present
 
         Frame& getCurrentFrame() { return m_frames[m_currentFrame]; }
+        size_t getFrameIndex() const { return m_currentFrame; }
 
     private:
         vk::Device m_device;

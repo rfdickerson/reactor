@@ -4,6 +4,8 @@
 
 #include "DescriptorSet.hpp"
 
+#include "Buffer.hpp"
+
 namespace reactor {
 
     DescriptorSet::DescriptorSet(vk::Device device, size_t framesInFlight, const std::vector<vk::DescriptorSetLayoutBinding> &bindings)
@@ -37,6 +39,22 @@ namespace reactor {
         if (m_layout) m_device.destroyDescriptorSetLayout(m_layout);
     }
 
+    void DescriptorSet::updateUniformBuffer(size_t frame, const Buffer &buffer) {
+        vk::DescriptorBufferInfo bufferInfo;
+        bufferInfo.buffer = buffer.buffer();
+        bufferInfo.offset = 0;
+        bufferInfo.range = buffer.size();
 
+        vk::WriteDescriptorSet write;
+        write.dstSet = m_sets[frame];
+        write.dstBinding = 0;
+        write.dstArrayElement = 0;
+        write.descriptorType = vk::DescriptorType::eUniformBuffer;
+        write.descriptorCount = 1;
+        write.pBufferInfo = &bufferInfo;
+        write.pImageInfo = nullptr;
+        write.pTexelBufferView = nullptr;
 
+        m_device.updateDescriptorSets(1, &write, 0, nullptr);
+    }
 } // reactor

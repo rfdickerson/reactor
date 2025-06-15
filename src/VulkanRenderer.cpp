@@ -1,6 +1,11 @@
 #include "VulkanRenderer.hpp"
 
+#include "Buffer.hpp"
 #include "Window.hpp"
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <cstring>
 
 namespace reactor {
     VulkanRenderer::VulkanRenderer() {
@@ -15,7 +20,7 @@ namespace reactor {
             m_context->physicalDevice(),
             m_context->surface(), *m_window);
 
-        m_frameManager = std::make_unique<FrameManager>(m_context->device(), 0, 2, m_swapchain->getImageViews().size());
+        m_frameManager = std::make_unique<FrameManager>(m_context->device(), *m_allocator, 0, 2, m_swapchain->getImageViews().size());
 
         std::string vertShaderPath = "../shaders/triangle.vert.spv";
         std::string fragShaderPath = "../shaders/triangle.frag.spv";
@@ -140,6 +145,25 @@ namespace reactor {
 
         vk::Rect2D scissor{{0, 0}, extent};
         cmd.setScissor(0, scissor);
+
+        Buffer& uniformBuffer = *frame.uniformBuffer;
+        glm::mat4 identity = glm::mat4(1.0f);
+
+        void *data = nullptr;
+        vmaMapMemory(m_allocator->get(), uniformBuffer.allocation(), &data);
+        memcpy(data, &identity, sizeof(glm::mat4));
+        vmaUnmapMemory(m_allocator->get(), uniformBuffer.allocation());
+
+        m_descriptorSet->updateUniformBuffer(m_frameManager->getFrameIndex(), uniformBuffer);
+
+        // bind descriptor set
+        cmd.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics,
+            m_pipeline->getLayout(),
+            0,
+            m_descriptorSet->getCurrentSet(m_frameManager->getFrameIndex()),
+            nullptr
+            );
 
         // Bind pipeline and draw triangle
         cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline->get());

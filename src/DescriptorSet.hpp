@@ -6,8 +6,9 @@
 #define DESCRIPTORSET_HPP
 
 namespace reactor {
+    class Buffer;
 
-class DescriptorSet {
+    class DescriptorSet {
 public:
     DescriptorSet(
         vk::Device device,
@@ -24,6 +25,8 @@ public:
 
     // helper for updating sets
     void updateSet(size_t frame, const std::vector<vk::WriteDescriptorSet>& writes);
+
+    void updateUniformBuffer(size_t frame, const Buffer& buffer);
 
 private:
     vk::Device m_device;

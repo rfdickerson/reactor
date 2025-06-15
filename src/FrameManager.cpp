@@ -5,7 +5,7 @@
 
 namespace reactor {
 
-FrameManager::FrameManager(vk::Device device, uint32_t commandQueueFamilyIndex, size_t maxFramesInFlight, uint32_t swapchainImageCount)
+FrameManager::FrameManager(vk::Device device, Allocator& allocator, uint32_t commandQueueFamilyIndex, size_t maxFramesInFlight, uint32_t swapchainImageCount)
     : m_device(device), m_currentFrame(0)
 {
     spdlog::info("Creating FrameManager with {} frames in flight", maxFramesInFlight);
@@ -27,6 +27,9 @@ FrameManager::FrameManager(vk::Device device, uint32_t commandQueueFamilyIndex, 
         frame.commandBuffer = m_device.allocateCommandBuffers(allocInfo)[0];
         vk::FenceCreateInfo fenceInfo{vk::FenceCreateFlagBits::eSignaled};
         frame.inFlightFence = m_device.createFence(fenceInfo);
+
+        // create a uniform buffer
+        frame.uniformBuffer = std::make_unique<Buffer>(allocator, 1024, vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_CPU_ONLY);
     }
 
     vk::SemaphoreCreateInfo semaphoreInfo{};

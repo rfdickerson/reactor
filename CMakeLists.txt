@@ -10,6 +10,7 @@ find_package(VulkanHeaders CONFIG)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
 
 add_executable(Reactor src/main.cpp
         src/VulkanContext.cpp
@@ -29,8 +30,10 @@ add_executable(Reactor src/main.cpp
         src/DescriptorSet.hpp
         src/Allocator.cpp
         src/Allocator.hpp
-        src/vk_mem_alloc.cpp)
+        src/vk_mem_alloc.cpp
+        src/Buffer.cpp
+        src/Buffer.hpp)
 
-target_link_libraries(Reactor Vulkan::Vulkan Vulkan::Headers glfw fmt::fmt spdlog::spdlog GPUOpen::VulkanMemoryAllocator)
+target_link_libraries(Reactor PRIVATE Vulkan::Vulkan Vulkan::Headers glfw fmt::fmt spdlog::spdlog GPUOpen::VulkanMemoryAllocator glm::glm)
 
 target_precompile_headers(Reactor PRIVATE src/pch.hpp)
