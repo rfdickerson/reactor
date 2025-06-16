@@ -45,6 +45,8 @@ namespace reactor {
             vertShaderPath,
             fragShaderPath,
             setLayouts);
+
+        m_imgui = std::make_unique<Imgui>(*m_context, *m_window);
     }
 
     VulkanRenderer::~VulkanRenderer() {
@@ -170,6 +172,9 @@ namespace reactor {
         // Bind pipeline and draw triangle
         cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline->get());
         cmd.draw(3, 1, 0, 0);
+
+        m_imgui->createFrame();
+        m_imgui->drawFrame(cmd);
 
         cmd.endRendering();
 

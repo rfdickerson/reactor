@@ -12,6 +12,7 @@
 #include "Window.hpp"
 #include "Swapchain.hpp"
 #include "FrameManager.hpp"
+#include "Imgui.hpp"
 #include "Pipeline.hpp"
 
 namespace reactor {
@@ -33,6 +34,7 @@ private:
     std::unique_ptr<FrameManager> m_frameManager;
     std::unique_ptr<DescriptorSet> m_descriptorSet;
     std::unique_ptr<Pipeline> m_pipeline;
+    std::unique_ptr<Imgui> m_imgui;
 };
 
 }
