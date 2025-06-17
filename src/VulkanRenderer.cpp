@@ -9,7 +9,7 @@
 #include <cstring>
 
 namespace reactor {
-    VulkanRenderer::VulkanRenderer(const RendererConfig& config) {
+    VulkanRenderer::VulkanRenderer(const RendererConfig& config) : m_config(config) {
         createCoreVulkanObjects();
         createSwapchainAndFrameManager();
         createPipelineAndDescriptors();
@@ -17,7 +17,10 @@ namespace reactor {
     }
 
     void VulkanRenderer::createCoreVulkanObjects() {
-        m_window = std::make_unique<Window>(1280, 720, "Reactor");
+        m_window = std::make_unique<Window>(
+            static_cast<int>(m_config.windowWidth),
+            static_cast<int>(m_config.windowHeight),
+            m_config.windowTitle);
         m_context = std::make_unique<VulkanContext>(m_window->getNativeWindow());
         m_allocator = std::make_unique<Allocator>( m_context->physicalDevice(), m_context->device(), m_context->instance());
     }
@@ -33,8 +36,8 @@ namespace reactor {
     }
 
     void VulkanRenderer::createPipelineAndDescriptors() {
-        std::string vertShaderPath = "../shaders/triangle.vert.spv";
-        std::string fragShaderPath = "../shaders/triangle.frag.spv";
+        std::string vertShaderPath = m_config.vertShaderPath;
+        std::string fragShaderPath = m_config.fragShaderPath;
 
         std::vector bindings = {
             vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex),

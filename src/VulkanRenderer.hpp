@@ -35,6 +35,7 @@ public:
     void drawFrame();
 
 private:
+    RendererConfig m_config{};
     std::unique_ptr<VulkanContext> m_context;
     std::unique_ptr<Window> m_window;
     std::unique_ptr<Swapchain> m_swapchain;
