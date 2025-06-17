@@ -96,7 +96,7 @@ bool FrameManager::beginFrame(vk::SwapchainKHR swapchain, uint32_t& outImageInde
         m_device.waitForFences(m_imagesInFlight[outImageIndex], VK_TRUE, UINT64_MAX);
     }
 
-    // Associate the current frame's fence with the aquired swapchain image
+    // Associate the current frame's fence with the acquired swapchain image
     m_imagesInFlight[outImageIndex] = m_frames[m_currentFrame].inFlightFence;
 
     m_device.resetFences(m_frames[m_currentFrame].inFlightFence);
