@@ -17,9 +17,17 @@
 
 namespace reactor {
 
+    struct RendererConfig {
+        uint32_t windowWidth;
+        uint32_t windowHeight;
+        std::string windowTitle;
+        std::string vertShaderPath;
+        std::string fragShaderPath;
+    };
+
 class VulkanRenderer {
 public:
-    VulkanRenderer();
+    VulkanRenderer(const RendererConfig& config);
     ~VulkanRenderer();
 
     void run();
@@ -35,6 +43,25 @@ private:
     std::unique_ptr<DescriptorSet> m_descriptorSet;
     std::unique_ptr<Pipeline> m_pipeline;
     std::unique_ptr<Imgui> m_imgui;
+
+    void createCoreVulkanObjects();
+    void createSwapchainAndFrameManager();
+    void createPipelineAndDescriptors();
+    void setupUI();
+
+    void handleSwapchainResizing();
+    void beginCommandBuffer(vk::CommandBuffer cmd);
+    void prepareImageForRendering(vk::CommandBuffer cmd, vk::Image image);
+    void beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView imageView, vk::Extent2D extent);
+    void setupViewportAndScissor(vk::CommandBuffer cmd, vk::Extent2D extent);
+    void updateUniformBuffer(Buffer* uniformBuffer);
+    void bindDescriptorSets(vk::CommandBuffer cmd);
+    void drawGeometry(vk::CommandBuffer cmd);
+    void renderUI(vk::CommandBuffer cmd);
+    void endDynamicRendering(vk::CommandBuffer cmd);
+    void prepareImageForPresent(vk::CommandBuffer cmd, vk::Image image);
+    void endCommandBuffer(vk::CommandBuffer cmd);
+    void submitAndPresent(uint32_t imageIndex);
 };
 
 }

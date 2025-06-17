@@ -2,28 +2,37 @@
 
 #include "Buffer.hpp"
 #include "Window.hpp"
+#include "VulkanUtils.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <cstring>
 
 namespace reactor {
-    VulkanRenderer::VulkanRenderer() {
-        // create the window first
+    VulkanRenderer::VulkanRenderer(const RendererConfig& config) {
+        createCoreVulkanObjects();
+        createSwapchainAndFrameManager();
+        createPipelineAndDescriptors();
+        setupUI();
+    }
+
+    void VulkanRenderer::createCoreVulkanObjects() {
         m_window = std::make_unique<Window>(1280, 720, "Reactor");
         m_context = std::make_unique<VulkanContext>(m_window->getNativeWindow());
-
         m_allocator = std::make_unique<Allocator>( m_context->physicalDevice(), m_context->device(), m_context->instance());
+    }
 
+    void VulkanRenderer::createSwapchainAndFrameManager() {
         m_swapchain = std::make_unique<Swapchain>(
             m_context->device(),
             m_context->physicalDevice(),
             m_context->surface(), *m_window);
 
         uint32_t swapchainImageCount = m_swapchain->getImageViews().size();
-
         m_frameManager = std::make_unique<FrameManager>(m_context->device(), *m_allocator, 0, 2, swapchainImageCount);
+    }
 
+    void VulkanRenderer::createPipelineAndDescriptors() {
         std::string vertShaderPath = "../shaders/triangle.vert.spv";
         std::string fragShaderPath = "../shaders/triangle.frag.spv";
 
@@ -45,9 +54,27 @@ namespace reactor {
             vertShaderPath,
             fragShaderPath,
             setLayouts);
+    }
 
+    void VulkanRenderer::handleSwapchainResizing() {
+        if (m_window->wasResized()) {
+            vk::Extent2D size = m_window->getFramebufferSize();
+            while (size.width == 0 || size.height == 0) {
+                Window::waitEvents();
+                size = m_window->getFramebufferSize();
+            }
+            m_context->device().waitIdle();
+            m_swapchain->recreate();
+            m_window->resetResizedFlag();
+        }
+    }
+
+
+    void VulkanRenderer::setupUI() {
         m_imgui = std::make_unique<Imgui>(*m_context, *m_window);
     }
+
+
 
     VulkanRenderer::~VulkanRenderer() {
         // cleanup
@@ -62,37 +89,92 @@ namespace reactor {
         m_context->device().waitIdle();
     }
 
+    void VulkanRenderer::beginCommandBuffer(vk::CommandBuffer cmd) {
+        cmd.begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+    }
 
-    void VulkanRenderer::drawFrame() {
-        if (m_window->wasResized()) {
-            vk::Extent2D size = m_window->getFramebufferSize();
-            while (size.width == 0 || size.height == 0) {
-                Window::waitEvents();
-                size = m_window->getFramebufferSize();
-            }
-            m_context->device().waitIdle();
-            m_swapchain->recreate();
-            m_window->resetResizedFlag();
-        }
+    void VulkanRenderer::prepareImageForRendering(vk::CommandBuffer cmd, vk::Image image) {
+        utils::transitionImageLayout(cmd, image,
+            vk::PipelineStageFlagBits::eTopOfPipe,
+            vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            {},
+            vk::AccessFlagBits::eColorAttachmentWrite,
+            vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eColorAttachmentOptimal);
+    }
 
-        uint32_t imageIndex = 0;
-        if (!m_frameManager->beginFrame(m_swapchain->get(), imageIndex)) {
-            // Swapchain out-of-date, try next frame
-            return;
-        }
+    void VulkanRenderer::setupViewportAndScissor(vk::CommandBuffer cmd, vk::Extent2D extent) {
+        vk::Viewport viewport{};
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = static_cast<float>(extent.width);
+        viewport.height = static_cast<float>(extent.height);
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        cmd.setViewport(0, viewport);
 
-        auto& frame = m_frameManager->getCurrentFrame();
-        auto cmd = frame.commandBuffer;
+        vk::Rect2D scissor{{0, 0}, extent};
+        cmd.setScissor(0, scissor);
+    }
 
-        // Setup clear color
+    void VulkanRenderer::bindDescriptorSets(vk::CommandBuffer cmd) {
+        cmd.bindDescriptorSets(
+           vk::PipelineBindPoint::eGraphics,
+           m_pipeline->getLayout(),
+           0,
+           m_descriptorSet->getCurrentSet(m_frameManager->getFrameIndex()),
+           nullptr
+           );
+    }
+
+    void VulkanRenderer::drawGeometry(vk::CommandBuffer cmd) {
+        cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline->get());
+        cmd.draw(3, 1, 0, 0);
+    }
+
+    void VulkanRenderer::renderUI(vk::CommandBuffer cmd) {
+        m_imgui->createFrame();
+        m_imgui->drawFrame(cmd);
+    }
+
+    void VulkanRenderer::endDynamicRendering(vk::CommandBuffer cmd) {
+        cmd.endRendering();
+    }
+
+    void VulkanRenderer::prepareImageForPresent(vk::CommandBuffer cmd, vk::Image image) {
+        utils::transitionImageLayout(cmd, image,
+            vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            vk::PipelineStageFlagBits::eBottomOfPipe,
+            vk::AccessFlagBits::eColorAttachmentWrite,
+            {},
+            vk::ImageLayout::eColorAttachmentOptimal,
+            vk::ImageLayout::ePresentSrcKHR);
+    }
+
+    void VulkanRenderer::endCommandBuffer(vk::CommandBuffer cmd) {
+        cmd.end();
+    }
+
+    void VulkanRenderer::submitAndPresent(uint32_t imageIndex) {
+        m_frameManager->endFrame(
+           m_context->graphicsQueue(),
+           m_context->presentQueue(),
+           m_swapchain->get(),
+           imageIndex
+       );
+    }
+
+    void VulkanRenderer::updateUniformBuffer(Buffer* uniformBuffer) {
+        glm::mat4 identity = glm::mat4(1.0f);
+        void *data = nullptr;
+        vmaMapMemory(m_allocator->get(), uniformBuffer->allocation(), &data);
+        memcpy(data, &identity, sizeof(glm::mat4));
+        vmaUnmapMemory(m_allocator->get(), uniformBuffer->allocation());
+        m_descriptorSet->updateUniformBuffer(m_frameManager->getFrameIndex(), *uniformBuffer);
+    }
+
+    void VulkanRenderer::beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView imageView, vk::Extent2D extent) {
         vk::ClearValue clearColor = vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f});
-        vk::Extent2D extent = m_swapchain->getExtent();
-
-        // Get the correct swapchain image view for the acquired image
-        const auto& imageViews = m_swapchain->getImageViews();
-        vk::ImageView imageView = imageViews[imageIndex];
-
-        // Setup rendering info for dynamic rendering
         vk::RenderingAttachmentInfo colorAttachment{};
         colorAttachment.imageView = imageView;
         colorAttachment.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
@@ -107,114 +189,36 @@ namespace reactor {
         renderingInfo.colorAttachmentCount = 1;
         renderingInfo.pColorAttachments = &colorAttachment;
 
-        cmd.begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
-
-        // Before dynamic rendering, ensure correct image layout for color attachment
-        {
-            vk::ImageMemoryBarrier imageBarrier{};
-            imageBarrier.oldLayout = vk::ImageLayout::eUndefined;  // see note below
-            imageBarrier.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
-            imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            imageBarrier.image = m_swapchain->getImages()[imageIndex];
-            imageBarrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-            imageBarrier.subresourceRange.baseMipLevel = 0;
-            imageBarrier.subresourceRange.levelCount = 1;
-            imageBarrier.subresourceRange.baseArrayLayer = 0;
-            imageBarrier.subresourceRange.layerCount = 1;
-            imageBarrier.srcAccessMask = {};
-            imageBarrier.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
-
-            cmd.pipelineBarrier(
-                vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                {},
-                nullptr, nullptr, imageBarrier
-            );
-        }
-
-
-        // Begin dynamic rendering
         cmd.beginRendering(renderingInfo);
+    }
 
-        // Set dynamic viewport/scissor
-        vk::Viewport viewport{};
-        viewport.x = 0.0f;
-        viewport.y = 0.0f;
-        viewport.width = static_cast<float>(extent.width);
-        viewport.height = static_cast<float>(extent.height);
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        cmd.setViewport(0, viewport);
+    void VulkanRenderer::drawFrame() {
+        handleSwapchainResizing();
 
-        vk::Rect2D scissor{{0, 0}, extent};
-        cmd.setScissor(0, scissor);
-
-        Buffer& uniformBuffer = *frame.uniformBuffer;
-        glm::mat4 identity = glm::mat4(1.0f);
-
-        void *data = nullptr;
-        vmaMapMemory(m_allocator->get(), uniformBuffer.allocation(), &data);
-        memcpy(data, &identity, sizeof(glm::mat4));
-        vmaUnmapMemory(m_allocator->get(), uniformBuffer.allocation());
-
-        m_descriptorSet->updateUniformBuffer(m_frameManager->getFrameIndex(), uniformBuffer);
-
-        // bind descriptor set
-        cmd.bindDescriptorSets(
-            vk::PipelineBindPoint::eGraphics,
-            m_pipeline->getLayout(),
-            0,
-            m_descriptorSet->getCurrentSet(m_frameManager->getFrameIndex()),
-            nullptr
-            );
-
-        // Bind pipeline and draw triangle
-        cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline->get());
-        cmd.draw(3, 1, 0, 0);
-
-        m_imgui->createFrame();
-        m_imgui->drawFrame(cmd);
-
-        cmd.endRendering();
-
-        // Transition swapchain image (the one we're presenting) to PRESENT_SRC_KHR
-        {
-            vk::ImageMemoryBarrier barrier{};
-            barrier
-                .setOldLayout(vk::ImageLayout::eColorAttachmentOptimal)
-                .setNewLayout(vk::ImageLayout::ePresentSrcKHR)
-                .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
-                .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
-                .setImage(m_swapchain->getImages()[imageIndex])
-                .setSubresourceRange(
-                    vk::ImageSubresourceRange()
-                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                        .setBaseMipLevel(0)
-                        .setLevelCount(1)
-                        .setBaseArrayLayer(0)
-                        .setLayerCount(1))
-                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-                .setDstAccessMask({}); // No need to access in present
-
-            cmd.pipelineBarrier(
-                vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                {},
-                nullptr, nullptr, barrier
-            );
+        uint32_t imageIndex;
+        if (!m_frameManager->beginFrame(m_swapchain->get(), imageIndex)) {
+            return; // Swapchain out-of-date
         }
 
+        auto& currentFrame = m_frameManager->getCurrentFrame();
+        vk::CommandBuffer cmd = currentFrame.commandBuffer;
+        vk::Image targetImage = m_swapchain->getImages()[imageIndex];
+        vk::ImageView targetImageView = m_swapchain->getImageViews()[imageIndex];
+        vk::Extent2D extent = m_swapchain->getExtent();
 
-        cmd.end();
+        beginCommandBuffer(cmd);
+        prepareImageForRendering(cmd, targetImage);
+        beginDynamicRendering(cmd, targetImageView, extent);
+        setupViewportAndScissor(cmd, extent);
+        updateUniformBuffer(currentFrame.uniformBuffer.get());
+        bindDescriptorSets(cmd);
+        drawGeometry(cmd);
+        renderUI(cmd);
+        endDynamicRendering(cmd);
+        prepareImageForPresent(cmd, targetImage);
+        endCommandBuffer(cmd);
 
-        // Submit and present
-        m_frameManager->endFrame(
-            m_context->graphicsQueue(),
-            m_context->presentQueue(),
-            m_swapchain->get(),
-            imageIndex
-        );
+        submitAndPresent(imageIndex);
     }
 
 }

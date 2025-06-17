@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.31)
+cmake_minimum_required(VERSION 3.28)
 project(Reactor)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -35,7 +35,8 @@ add_executable(Reactor src/main.cpp
         src/Buffer.cpp
         src/Buffer.hpp
         src/Imgui.cpp
-        src/Imgui.hpp)
+        src/Imgui.hpp
+        src/VulkanUtils.hpp)
 
 target_link_libraries(Reactor PRIVATE Vulkan::Vulkan Vulkan::Headers glfw fmt::fmt spdlog::spdlog GPUOpen::VulkanMemoryAllocator glm::glm)
 target_link_libraries(Reactor PRIVATE imgui::imgui)
