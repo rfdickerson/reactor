@@ -14,6 +14,7 @@
 #include "FrameManager.hpp"
 #include "Imgui.hpp"
 #include "Pipeline.hpp"
+#include "Image.hpp"
 
 namespace reactor {
 
@@ -44,11 +45,15 @@ private:
     std::unique_ptr<DescriptorSet> m_descriptorSet;
     std::unique_ptr<Pipeline> m_pipeline;
     std::unique_ptr<Imgui> m_imgui;
+    std::unique_ptr<Image> m_msaaImage;
+
+    vk::ImageView m_msaaImageView;
 
     void createCoreVulkanObjects();
     void createSwapchainAndFrameManager();
     void createPipelineAndDescriptors();
     void setupUI();
+    void createMSAAImage();
 
     void handleSwapchainResizing();
     void beginCommandBuffer(vk::CommandBuffer cmd);

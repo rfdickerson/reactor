@@ -14,6 +14,7 @@ namespace reactor {
         createSwapchainAndFrameManager();
         createPipelineAndDescriptors();
         setupUI();
+        createMSAAImage();
     }
 
     void VulkanRenderer::createCoreVulkanObjects() {
@@ -223,5 +224,39 @@ namespace reactor {
 
         submitAndPresent(imageIndex);
     }
+
+    void VulkanRenderer::createMSAAImage() {
+        vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e4;
+
+        vk::ImageCreateInfo imageInfo{};
+        imageInfo.imageType = vk::ImageType::e2D;
+        imageInfo.extent.width = m_swapchain->getExtent().width;
+        imageInfo.extent.height = m_swapchain->getExtent().height;
+        imageInfo.extent.depth = 1;
+        imageInfo.mipLevels = 1;
+        imageInfo.arrayLayers = 1;
+        imageInfo.format = m_swapchain->getFormat();
+        imageInfo.tiling = vk::ImageTiling::eOptimal;
+        imageInfo.initialLayout = vk::ImageLayout::eUndefined;
+        imageInfo.usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransientAttachment | vk::ImageUsageFlagBits::eInputAttachment;
+        imageInfo.samples = msaaSamples;
+        imageInfo.sharingMode = vk::SharingMode::eExclusive;
+
+        // Create the Image object
+        m_msaaImage = std::make_unique<Image>(*m_allocator, imageInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+
+        vk::ImageViewCreateInfo viewInfo{};
+        viewInfo.image = m_msaaImage->get(); // Get the VkImage from your new Image object
+        viewInfo.viewType = vk::ImageViewType::e2D;
+        viewInfo.format = m_swapchain->getFormat();
+        viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+        viewInfo.subresourceRange.baseMipLevel = 0;
+        viewInfo.subresourceRange.levelCount = 1;
+        viewInfo.subresourceRange.baseArrayLayer = 0;
+        viewInfo.subresourceRange.layerCount = 1;
+
+        m_msaaImageView = m_context->device().createImageView(viewInfo);
+    }
+
 
 }
