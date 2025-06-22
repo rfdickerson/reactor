@@ -45,9 +45,9 @@ private:
     std::unique_ptr<DescriptorSet> m_descriptorSet;
     std::unique_ptr<Pipeline> m_pipeline;
     std::unique_ptr<Imgui> m_imgui;
-    std::unique_ptr<Image> m_msaaImage;
 
-    vk::ImageView m_msaaImageView;
+    std::vector<std::unique_ptr<Image>> m_msaaImages;
+    std::vector<vk::ImageView> m_msaaColorViews;
 
     void createCoreVulkanObjects();
     void createSwapchainAndFrameManager();
@@ -68,6 +68,13 @@ private:
     void prepareImageForPresent(vk::CommandBuffer cmd, vk::Image image);
     void endCommandBuffer(vk::CommandBuffer cmd);
     void submitAndPresent(uint32_t imageIndex);
+    void blitToSwapchain(vk::CommandBuffer cmd,
+        vk::Image msaaImage,
+        vk::Image swapchainImage,
+        uint32_t width,
+        uint32_t height);
+
+
 };
 
 }

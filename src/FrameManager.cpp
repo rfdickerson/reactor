@@ -6,7 +6,7 @@
 namespace reactor {
 
 FrameManager::FrameManager(vk::Device device, Allocator& allocator, uint32_t commandQueueFamilyIndex, size_t maxFramesInFlight, uint32_t swapchainImageCount)
-    : m_device(device), m_currentFrame(0)
+    : m_device(device), m_currentFrame(0), m_framesInFlightCount(maxFramesInFlight)
 {
     spdlog::info("Creating FrameManager with {} frames in flight", maxFramesInFlight);
 

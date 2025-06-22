@@ -54,7 +54,7 @@ namespace reactor {
 
         m_pipeline = std::make_unique<Pipeline>(
             m_context->device(),
-            vk::Format::eB8G8R8A8Srgb,
+            vk::Format::eR16G16B16A16Sfloat,
             vertShaderPath,
             fragShaderPath,
             setLayouts);
@@ -205,20 +205,28 @@ namespace reactor {
         }
 
         auto& currentFrame = m_frameManager->getCurrentFrame();
+        uint32_t frameIdx = m_frameManager->getCurrentFrameIndex();
         vk::CommandBuffer cmd = currentFrame.commandBuffer;
         vk::Image targetImage = m_swapchain->getImages()[imageIndex];
         vk::ImageView targetImageView = m_swapchain->getImageViews()[imageIndex];
         vk::Extent2D extent = m_swapchain->getExtent();
 
+        auto width = m_swapchain->getExtent().width;
+        auto height = m_swapchain->getExtent().height;
+        auto& i = m_msaaImages[frameIdx];
+        auto ir = i->get();
+        vk::ImageView msaaView = m_msaaColorViews[frameIdx];
+
         beginCommandBuffer(cmd);
         prepareImageForRendering(cmd, targetImage);
-        beginDynamicRendering(cmd, targetImageView, extent);
+        beginDynamicRendering(cmd, msaaView, extent);
         setupViewportAndScissor(cmd, extent);
         updateUniformBuffer(currentFrame.uniformBuffer.get());
         bindDescriptorSets(cmd);
         drawGeometry(cmd);
-        renderUI(cmd);
+        //renderUI(cmd);
         endDynamicRendering(cmd);
+        blitToSwapchain(cmd, ir, targetImage, width, height);
         prepareImageForPresent(cmd, targetImage);
         endCommandBuffer(cmd);
 
@@ -228,6 +236,10 @@ namespace reactor {
     void VulkanRenderer::createMSAAImage() {
         vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e4;
 
+        // set format to HDR capable space
+        vk::Format format = vk::Format::eR16G16B16A16Sfloat;
+;
+
         vk::ImageCreateInfo imageInfo{};
         imageInfo.imageType = vk::ImageType::e2D;
         imageInfo.extent.width = m_swapchain->getExtent().width;
@@ -235,28 +247,90 @@ namespace reactor {
         imageInfo.extent.depth = 1;
         imageInfo.mipLevels = 1;
         imageInfo.arrayLayers = 1;
-        imageInfo.format = m_swapchain->getFormat();
+        imageInfo.format = format;
         imageInfo.tiling = vk::ImageTiling::eOptimal;
         imageInfo.initialLayout = vk::ImageLayout::eUndefined;
         imageInfo.usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransientAttachment | vk::ImageUsageFlagBits::eInputAttachment;
         imageInfo.samples = msaaSamples;
         imageInfo.sharingMode = vk::SharingMode::eExclusive;
 
-        // Create the Image object
-        m_msaaImage = std::make_unique<Image>(*m_allocator, imageInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+        size_t framesInFlight = m_frameManager->getFramesInFlightCount();
 
-        vk::ImageViewCreateInfo viewInfo{};
-        viewInfo.image = m_msaaImage->get(); // Get the VkImage from your new Image object
-        viewInfo.viewType = vk::ImageViewType::e2D;
-        viewInfo.format = m_swapchain->getFormat();
-        viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-        viewInfo.subresourceRange.baseMipLevel = 0;
-        viewInfo.subresourceRange.levelCount = 1;
-        viewInfo.subresourceRange.baseArrayLayer = 0;
-        viewInfo.subresourceRange.layerCount = 1;
+        m_msaaImages.resize(framesInFlight);
+        m_msaaColorViews.resize(framesInFlight);
 
-        m_msaaImageView = m_context->device().createImageView(viewInfo);
+        for (size_t i = 0; i < framesInFlight; ++i) {
+            // Create the Image object
+            m_msaaImages[i] = std::make_unique<Image>(*m_allocator, imageInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+
+            vk::ImageViewCreateInfo viewInfo{};
+            viewInfo.image = m_msaaImages[i]->get(); // Get the VkImage from your new Image object
+            viewInfo.viewType = vk::ImageViewType::e2D;
+            viewInfo.format = format;
+            viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+            viewInfo.subresourceRange.baseMipLevel = 0;
+            viewInfo.subresourceRange.levelCount = 1;
+            viewInfo.subresourceRange.baseArrayLayer = 0;
+            viewInfo.subresourceRange.layerCount = 1;
+
+            m_msaaColorViews[i] = m_context->device().createImageView(viewInfo);
+        }
+
+
     }
+
+    void VulkanRenderer::blitToSwapchain(
+        vk::CommandBuffer cmd,
+        vk::Image msaaImage,
+        vk::Image swapchainImage,
+        uint32_t width,
+        uint32_t height
+        ) {
+        // Transition MSAA image (source) to transfer src layout
+        prepareImageForRendering(cmd, msaaImage);
+
+        // Transition swapchain image (destination) to transfer dst layout
+        prepareImageForRendering(cmd, swapchainImage);
+
+        // Define the blit region (full image)
+        vk::ImageBlit blitRegion{};
+        blitRegion.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+        blitRegion.srcSubresource.mipLevel = 0;
+        blitRegion.srcSubresource.baseArrayLayer = 0;
+        blitRegion.srcSubresource.layerCount = 1;
+        blitRegion.srcOffsets[0] = vk::Offset3D{0, 0, 0};
+        blitRegion.srcOffsets[1] = vk::Offset3D{
+            static_cast<int32_t>(width),
+            static_cast<int32_t>(height),
+            1
+        };
+
+        blitRegion.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+        blitRegion.dstSubresource.mipLevel = 0;
+        blitRegion.dstSubresource.baseArrayLayer = 0;
+        blitRegion.dstSubresource.layerCount = 1;
+        blitRegion.dstOffsets[0] = vk::Offset3D{0, 0, 0};
+        blitRegion.dstOffsets[1] = vk::Offset3D{
+            static_cast<int32_t>(width),
+            static_cast<int32_t>(height),
+            1
+        };
+
+        // Blit the MSAA image to the swapchain image, converting formats
+        cmd.blitImage(
+            msaaImage, vk::ImageLayout::eTransferSrcOptimal,
+            swapchainImage, vk::ImageLayout::eTransferDstOptimal,
+            1, &blitRegion,
+            vk::Filter::eNearest // Use vk::Filter::eLinear if filtering is desired
+        );
+
+        // Transition the swapchain image for presentation
+        prepareImageForPresent(cmd, swapchainImage);
+
+
+
+    }
+
 
 
 }
