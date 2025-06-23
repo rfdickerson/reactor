@@ -26,9 +26,24 @@ namespace reactor {
         std::string fragShaderPath;
     };
 
+    struct ImageWithView {
+        std::unique_ptr<Image> image;
+        vk::ImageView view;
+        vk::Device device;
+
+        ~ImageWithView() {
+            device.destroyImageView(view);
+        }
+    };
+
+    struct FrameImageResources {
+        ImageWithView msaaImage;
+        ImageWithView resolveImage;
+    };
+
 class VulkanRenderer {
 public:
-    VulkanRenderer(const RendererConfig& config);
+    explicit VulkanRenderer(const RendererConfig& config);
     ~VulkanRenderer();
 
     void run();
@@ -49,11 +64,15 @@ private:
     std::vector<std::unique_ptr<Image>> m_msaaImages;
     std::vector<vk::ImageView> m_msaaColorViews;
 
+    std::vector<std::unique_ptr<Image>> m_resolveImages;
+    std::vector<vk::ImageView> m_resolveViews;
+
     void createCoreVulkanObjects();
     void createSwapchainAndFrameManager();
     void createPipelineAndDescriptors();
     void setupUI();
     void createMSAAImage();
+    void createResolveImages();
 
     void handleSwapchainResizing();
     void beginCommandBuffer(vk::CommandBuffer cmd);
@@ -68,9 +87,12 @@ private:
     void prepareImageForPresent(vk::CommandBuffer cmd, vk::Image image);
     void endCommandBuffer(vk::CommandBuffer cmd);
     void submitAndPresent(uint32_t imageIndex);
-    void blitToSwapchain(vk::CommandBuffer cmd,
+
+    void resolveMSAAImageTo(
+        vk::CommandBuffer cmd,
         vk::Image msaaImage,
-        vk::Image swapchainImage,
+        vk::Image resolveImage,
+        vk::Format format,
         uint32_t width,
         uint32_t height);
 
