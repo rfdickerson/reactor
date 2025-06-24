@@ -1,0 +1,23 @@
+# .clang-format
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+# Don’t indent contents of namespaces
+NamespaceIndentation: None
+
+# Align consecutive assignments
+AlignConsecutiveAssignments: true
+
+# Optionally align declarations too (if you like the visual symmetry)
+AlignConsecutiveDeclarations: true
+
+# Keep parameters and arguments aligned (can be visually helpful)
+AlignAfterOpenBracket: Align
+
+# Optional: control brace placement if you like a specific style
+BreakBeforeBraces: Attach
+
+# Optional: max line length
+ColumnLimit: 100

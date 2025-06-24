@@ -14,6 +14,7 @@
 #include "FrameManager.hpp"
 #include "Imgui.hpp"
 #include "Pipeline.hpp"
+#include "Image.hpp"
 
 namespace reactor {
 
@@ -25,9 +26,24 @@ namespace reactor {
         std::string fragShaderPath;
     };
 
+    struct ImageWithView {
+        std::unique_ptr<Image> image;
+        vk::ImageView view;
+        vk::Device device;
+
+        ~ImageWithView() {
+            device.destroyImageView(view);
+        }
+    };
+
+    struct FrameImageResources {
+        ImageWithView msaaImage;
+        ImageWithView resolveImage;
+    };
+
 class VulkanRenderer {
 public:
-    VulkanRenderer(const RendererConfig& config);
+    explicit VulkanRenderer(const RendererConfig& config);
     ~VulkanRenderer();
 
     void run();
@@ -45,16 +61,23 @@ private:
     std::unique_ptr<Pipeline> m_pipeline;
     std::unique_ptr<Imgui> m_imgui;
 
+    std::vector<std::unique_ptr<Image>> m_msaaImages;
+    std::vector<vk::ImageView> m_msaaColorViews;
+
+    std::vector<std::unique_ptr<Image>> m_resolveImages;
+    std::vector<vk::ImageView> m_resolveViews;
+
     void createCoreVulkanObjects();
     void createSwapchainAndFrameManager();
     void createPipelineAndDescriptors();
     void setupUI();
+    void createMSAAImage();
+    void createResolveImages();
 
     void handleSwapchainResizing();
     void beginCommandBuffer(vk::CommandBuffer cmd);
     void prepareImageForRendering(vk::CommandBuffer cmd, vk::Image image);
     void beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView imageView, vk::Extent2D extent);
-    void setupViewportAndScissor(vk::CommandBuffer cmd, vk::Extent2D extent);
     void updateUniformBuffer(Buffer* uniformBuffer);
     void bindDescriptorSets(vk::CommandBuffer cmd);
     void drawGeometry(vk::CommandBuffer cmd);
@@ -63,6 +86,8 @@ private:
     void prepareImageForPresent(vk::CommandBuffer cmd, vk::Image image);
     void endCommandBuffer(vk::CommandBuffer cmd);
     void submitAndPresent(uint32_t imageIndex);
+
+
 };
 
 }

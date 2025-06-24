@@ -35,6 +35,8 @@ namespace reactor {
 
         Frame& getCurrentFrame() { return m_frames[m_currentFrame]; }
         size_t getFrameIndex() const { return m_currentFrame; }
+        size_t getFramesInFlightCount() const { return m_framesInFlightCount; }
+        size_t getCurrentFrameIndex() const { return m_currentFrame; }
 
     private:
         vk::Device m_device;
@@ -44,6 +46,7 @@ namespace reactor {
         std::vector<vk::Semaphore> m_renderFinishedSemaphores;
         std::vector<vk::Fence> m_imagesInFlight;
         size_t m_currentFrame;
+        size_t m_framesInFlightCount;
     };
 }
 #endif //FRAMEMANAGER_HPP

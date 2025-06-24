@@ -36,7 +36,9 @@ add_executable(Reactor src/main.cpp
         src/Buffer.hpp
         src/Imgui.cpp
         src/Imgui.hpp
-        src/VulkanUtils.hpp)
+        src/VulkanUtils.hpp
+        src/Image.cpp
+        src/Image.hpp)
 
 target_link_libraries(Reactor PRIVATE Vulkan::Vulkan Vulkan::Headers glfw fmt::fmt spdlog::spdlog GPUOpen::VulkanMemoryAllocator glm::glm)
 target_link_libraries(Reactor PRIVATE imgui::imgui)

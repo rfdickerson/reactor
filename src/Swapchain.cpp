@@ -58,7 +58,7 @@ namespace reactor {
         createInfo.imageColorSpace = surfaceFormat.colorSpace;
         createInfo.imageExtent = extent;
         createInfo.imageArrayLayers = 1;
-        createInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
+        createInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst;
 
         // Assume graphics and present queue families are the same for simplicity
         createInfo.imageSharingMode = vk::SharingMode::eExclusive;

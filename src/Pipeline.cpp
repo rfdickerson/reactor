@@ -72,7 +72,7 @@ Pipeline::Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
     // 7. Multisampling (disabled)
     vk::PipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sampleShadingEnable = VK_FALSE;
-    multisampling.rasterizationSamples = vk::SampleCountFlagBits::e1;
+    multisampling.rasterizationSamples = vk::SampleCountFlagBits::e4;
 
     // 8. Color blending
     vk::PipelineColorBlendAttachmentState colorBlendAttachment{};
