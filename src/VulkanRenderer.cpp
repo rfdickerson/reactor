@@ -138,12 +138,12 @@ void VulkanRenderer::updateUniformBuffer(Buffer *uniformBuffer) {
 }
 
 void VulkanRenderer::beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView imageView,
-                                           vk::Extent2D extent) {
-    constexpr vk::ClearValue clearColor = vk::ClearColorValue(std::array{0.0f, 0.0f, 0.0f, 1.0f});
+                                           vk::Extent2D extent, bool clear=true) {
+    constexpr vk::ClearValue clearColor = vk::ClearColorValue({0.0f, 0.0f, 0.0f, 1.0f});
     vk::RenderingAttachmentInfo colorAttachment{};
     colorAttachment.imageView   = imageView;
     colorAttachment.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
-    colorAttachment.loadOp      = vk::AttachmentLoadOp::eClear;
+    colorAttachment.loadOp      = clear ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad;
     colorAttachment.storeOp     = vk::AttachmentStoreOp::eStore;
     colorAttachment.clearValue  = clearColor;
 
@@ -191,12 +191,17 @@ void VulkanRenderer::drawFrame() {
     updateUniformBuffer(currentFrame.uniformBuffer.get());
     bindDescriptorSets(cmd);
     drawGeometry(cmd);
-    // renderUI(cmd);
+
     endDynamicRendering(cmd);
 
     utils::resolveMSAAImageTo(cmd, msaaImage, resolveImage, width, height);
 
     utils::blitToSwapchain(cmd, resolveImage, swapchainImage, width, height);
+
+    // render the UI here
+    beginDynamicRendering(cmd, m_swapchain->getImageViews()[imageIndex], extent, false);
+    renderUI(cmd);
+    endDynamicRendering(cmd);
 
     endCommandBuffer(cmd);
 

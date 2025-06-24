@@ -77,7 +77,7 @@ private:
     void handleSwapchainResizing();
     void beginCommandBuffer(vk::CommandBuffer cmd);
     void prepareImageForRendering(vk::CommandBuffer cmd, vk::Image image);
-    void beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView imageView, vk::Extent2D extent);
+    void beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView imageView, vk::Extent2D extent, bool clear);
     void updateUniformBuffer(Buffer* uniformBuffer);
     void bindDescriptorSets(vk::CommandBuffer cmd);
     void drawGeometry(vk::CommandBuffer cmd);
