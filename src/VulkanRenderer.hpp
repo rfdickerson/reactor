@@ -78,7 +78,6 @@ private:
     void beginCommandBuffer(vk::CommandBuffer cmd);
     void prepareImageForRendering(vk::CommandBuffer cmd, vk::Image image);
     void beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView imageView, vk::Extent2D extent);
-    void setupViewportAndScissor(vk::CommandBuffer cmd, vk::Extent2D extent);
     void updateUniformBuffer(Buffer* uniformBuffer);
     void bindDescriptorSets(vk::CommandBuffer cmd);
     void drawGeometry(vk::CommandBuffer cmd);
@@ -87,14 +86,6 @@ private:
     void prepareImageForPresent(vk::CommandBuffer cmd, vk::Image image);
     void endCommandBuffer(vk::CommandBuffer cmd);
     void submitAndPresent(uint32_t imageIndex);
-
-    void resolveMSAAImageTo(
-        vk::CommandBuffer cmd,
-        vk::Image msaaImage,
-        vk::Image resolveImage,
-        vk::Format format,
-        uint32_t width,
-        uint32_t height);
 
 
 };
