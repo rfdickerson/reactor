@@ -139,7 +139,7 @@ void VulkanRenderer::updateUniformBuffer(Buffer *uniformBuffer) {
 
 void VulkanRenderer::beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView imageView,
                                            vk::Extent2D extent, bool clear=true) {
-    constexpr vk::ClearValue clearColor = vk::ClearColorValue({0.0f, 0.0f, 0.0f, 1.0f});
+    constexpr vk::ClearValue clearColor = vk::ClearColorValue(std::array{0.0f, 0.0f, 0.0f, 1.0f});
     vk::RenderingAttachmentInfo colorAttachment{};
     colorAttachment.imageView   = imageView;
     colorAttachment.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
