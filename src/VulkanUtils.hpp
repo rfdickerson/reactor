@@ -119,10 +119,15 @@ inline void resolveMSAAImageTo(vk::CommandBuffer cmd, vk::Image msaaImage, vk::I
                      vk::ImageLayout::eTransferDstOptimal, 1, &resolveRegion);
 
     // after resolving resolve is not in Color attachment optimal for next stage blitting
+    // transitionImageLayout(cmd, resolveImage,
+    //                      vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eColorAttachmentOutput,
+    //                      vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eColorAttachmentWrite,
+    //                      vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eColorAttachmentOptimal);
+
     transitionImageLayout(cmd, resolveImage,
-                         vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                         vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eColorAttachmentWrite,
-                         vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eColorAttachmentOptimal);
+                     vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader,
+                     vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eShaderRead,
+                     vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
 
 }
 

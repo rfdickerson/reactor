@@ -16,6 +16,7 @@ VulkanRenderer::VulkanRenderer(const RendererConfig &config) : m_config(config) 
     setupUI();
     createMSAAImage();
     createResolveImages();
+    createSampler();
 }
 
 void VulkanRenderer::createCoreVulkanObjects() {
@@ -50,7 +51,18 @@ void VulkanRenderer::createPipelineAndDescriptors() {
     std::vector setLayouts = {m_descriptorSet->getLayout()};
 
     m_pipeline = std::make_unique<Pipeline>(m_context->device(), vk::Format::eR16G16B16A16Sfloat,
-                                            vertShaderPath, fragShaderPath, setLayouts);
+                                            vertShaderPath, fragShaderPath, setLayouts, 4);
+
+    std::vector compositeBindings = {
+        vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment),
+        vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
+    };
+
+    m_compositeDescriptorSet = std::make_unique<DescriptorSet>(m_context->device(), 2, compositeBindings);
+    std::vector compositeSetLayouts = {m_compositeDescriptorSet->getLayout()};
+
+    m_compositePipeline = std::make_unique<Pipeline>(m_context->device(), vk::Format::eR16G16B16A16Sfloat,
+                                            m_config.compositeVertShaderPath, m_config.compositeFragShaderPath, compositeSetLayouts, 1);
 }
 
 void VulkanRenderer::handleSwapchainResizing() {
@@ -135,6 +147,9 @@ void VulkanRenderer::updateUniformBuffer(Buffer *uniformBuffer) {
     memcpy(data, &identity, sizeof(glm::mat4));
     vmaUnmapMemory(m_allocator->get(), uniformBuffer->allocation());
     m_descriptorSet->updateUniformBuffer(m_frameManager->getFrameIndex(), *uniformBuffer);
+
+
+
 }
 
 void VulkanRenderer::beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView imageView,
@@ -196,12 +211,65 @@ void VulkanRenderer::drawFrame() {
 
     utils::resolveMSAAImageTo(cmd, msaaImage, resolveImage, width, height);
 
-    utils::blitToSwapchain(cmd, resolveImage, swapchainImage, width, height);
+    //utils::blitToSwapchain(cmd, resolveImage, swapchainImage, width, height);
+    //beginDynamicRendering(cmd, m_resolveViews[frameIdx], extent, true);
+    beginDynamicRendering(cmd, m_swapchain->getImageViews()[imageIndex], extent, true);
+    utils::setupViewportAndScissor(cmd, extent);
+
+    const Buffer* compositeUniform = currentFrame.uniformBuffer.get();
+    CompositeUBO composite_ubo;
+    composite_ubo.uExposure = 0.5;
+
+    void     *data     = nullptr;
+    vmaMapMemory(m_allocator->get(), compositeUniform->allocation(), &data);
+    memcpy(data, &composite_ubo, sizeof(CompositeUBO));
+    vmaUnmapMemory(m_allocator->get(), compositeUniform->allocation());
+
+    vk::DescriptorImageInfo imageInfo = {};
+    imageInfo.imageView = m_resolveViews[frameIdx];
+    imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    imageInfo.sampler = m_sampler->get();
+
+    vk::DescriptorBufferInfo bufferInfo = {};
+    bufferInfo.buffer = compositeUniform->buffer();
+    bufferInfo.offset = 0;
+    bufferInfo.range  = sizeof(CompositeUBO);
+
+    std::vector writes = {
+        vk::WriteDescriptorSet{
+            m_compositeDescriptorSet->getCurrentSet(frameIdx),
+            0,
+            0,
+            1,
+            vk::DescriptorType::eCombinedImageSampler,
+            &imageInfo,
+            nullptr,
+        },
+        vk::WriteDescriptorSet{
+            m_compositeDescriptorSet->getCurrentSet(frameIdx),
+            1,
+            0,
+            1,
+            vk::DescriptorType::eUniformBuffer,
+            nullptr,
+            &bufferInfo,
+            nullptr
+        }
+    };
+    m_descriptorSet->updateSet(writes);
+
+    cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_compositePipeline->get());
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_compositePipeline->getLayout(), 0, m_compositeDescriptorSet->getCurrentSet(m_frameManager->getFrameIndex()), nullptr);
+    cmd.draw(3, 1, 0, 0);
+    endDynamicRendering(cmd);
 
     // render the UI here
     beginDynamicRendering(cmd, m_swapchain->getImageViews()[imageIndex], extent, false);
     renderUI(cmd);
     endDynamicRendering(cmd);
+
+    // transition swapchain to present optimal
+    prepareImageForPresent(cmd, swapchainImage);
 
     endCommandBuffer(cmd);
 
@@ -276,7 +344,7 @@ void VulkanRenderer::createResolveImages() {
         imageInfo.tiling        = vk::ImageTiling::eOptimal;
         imageInfo.initialLayout = vk::ImageLayout::eUndefined;
         imageInfo.usage         = vk::ImageUsageFlagBits::eColorAttachment |
-                          vk::ImageUsageFlagBits::eTransferSrc |
+                vk::ImageUsageFlagBits::eSampled |
                           vk::ImageUsageFlagBits::eTransferDst;
         imageInfo.samples     = vk::SampleCountFlagBits::e1; // Resolve is NOT multisampled!
         imageInfo.sharingMode = vk::SharingMode::eExclusive;
@@ -297,6 +365,26 @@ void VulkanRenderer::createResolveImages() {
 
         m_resolveViews[i] = m_context->device().createImageView(viewInfo);
     }
+}
+
+void VulkanRenderer::createSampler() {
+    vk::SamplerCreateInfo samplerInfo{};
+    samplerInfo.magFilter = vk::Filter::eLinear;
+    samplerInfo.minFilter = vk::Filter::eLinear;
+    samplerInfo.mipmapMode = vk::SamplerMipmapMode::eLinear;
+    samplerInfo.addressModeU = vk::SamplerAddressMode::eClampToEdge;
+    samplerInfo.addressModeV = vk::SamplerAddressMode::eClampToEdge;
+    samplerInfo.addressModeW = vk::SamplerAddressMode::eClampToEdge;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.anisotropyEnable = VK_TRUE;
+    samplerInfo.maxAnisotropy = 16.0f;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = vk::CompareOp::eAlways;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = 0.0f;
+    samplerInfo.borderColor = vk::BorderColor::eFloatOpaqueWhite;
+
+    m_sampler = std::make_unique<Sampler>(m_context->device(), samplerInfo);
 }
 
 } // namespace reactor

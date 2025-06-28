@@ -23,7 +23,9 @@ vk::ShaderModule Pipeline::createShaderModule(const std::vector<char>& code) {
 }
 
 Pipeline::Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
-                   const std::string& vertShaderPath, const std::string& fragShaderPath, const std::vector<vk::DescriptorSetLayout>& setLayouts)
+                   const std::string& vertShaderPath,
+                   const std::string& fragShaderPath,
+                   const std::vector<vk::DescriptorSetLayout>& setLayouts, uint32_t samples)
     : m_device(device)
 {
     // 1. Read shader code from files
@@ -72,7 +74,12 @@ Pipeline::Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
     // 7. Multisampling (disabled)
     vk::PipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sampleShadingEnable = VK_FALSE;
-    multisampling.rasterizationSamples = vk::SampleCountFlagBits::e4;
+
+    if (samples > 1) {
+        multisampling.rasterizationSamples = vk::SampleCountFlagBits::e4;
+    } else {
+        multisampling.rasterizationSamples = vk::SampleCountFlagBits::e1;
+    }
 
     // 8. Color blending
     vk::PipelineColorBlendAttachmentState colorBlendAttachment{};

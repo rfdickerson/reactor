@@ -8,13 +8,14 @@
 
 #include "Allocator.hpp"
 #include "DescriptorSet.hpp"
-#include "VulkanContext.hpp"
-#include "Window.hpp"
-#include "Swapchain.hpp"
 #include "FrameManager.hpp"
+#include "Image.hpp"
 #include "Imgui.hpp"
 #include "Pipeline.hpp"
-#include "Image.hpp"
+#include "Sampler.h"
+#include "Swapchain.hpp"
+#include "VulkanContext.hpp"
+#include "Window.hpp"
 
 namespace reactor {
 
@@ -24,22 +25,13 @@ namespace reactor {
         std::string windowTitle;
         std::string vertShaderPath;
         std::string fragShaderPath;
+        std::string compositeVertShaderPath;
+        std::string compositeFragShaderPath;
     };
 
-    struct ImageWithView {
-        std::unique_ptr<Image> image;
-        vk::ImageView view;
-        vk::Device device;
-
-        ~ImageWithView() {
-            device.destroyImageView(view);
-        }
-    };
-
-    struct FrameImageResources {
-        ImageWithView msaaImage;
-        ImageWithView resolveImage;
-    };
+   struct CompositeUBO {
+       float uExposure = 0.1;
+   };
 
 class VulkanRenderer {
 public:
@@ -59,6 +51,10 @@ private:
     std::unique_ptr<FrameManager> m_frameManager;
     std::unique_ptr<DescriptorSet> m_descriptorSet;
     std::unique_ptr<Pipeline> m_pipeline;
+    std::unique_ptr<Pipeline> m_compositePipeline;
+    std::unique_ptr<DescriptorSet> m_compositeDescriptorSet;
+    std::unique_ptr<Sampler> m_sampler;
+
     std::unique_ptr<Imgui> m_imgui;
 
     std::vector<std::unique_ptr<Image>> m_msaaImages;
@@ -73,6 +69,7 @@ private:
     void setupUI();
     void createMSAAImage();
     void createResolveImages();
+    void createSampler();
 
     void handleSwapchainResizing();
     void beginCommandBuffer(vk::CommandBuffer cmd);
