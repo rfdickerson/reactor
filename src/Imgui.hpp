@@ -17,10 +17,14 @@ public:
     void createFrame();
     void drawFrame(vk::CommandBuffer commandBuffer);
 
+    float getExposure() const { return m_exposure; }
+
 private:
 
     vk::Device m_device;
     vk::DescriptorPool m_descriptorPool;
+
+    float m_exposure = 1.0f;
 
 };
 

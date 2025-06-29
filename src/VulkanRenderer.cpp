@@ -211,14 +211,12 @@ void VulkanRenderer::drawFrame() {
 
     utils::resolveMSAAImageTo(cmd, msaaImage, resolveImage, width, height);
 
-    //utils::blitToSwapchain(cmd, resolveImage, swapchainImage, width, height);
-    //beginDynamicRendering(cmd, m_resolveViews[frameIdx], extent, true);
     beginDynamicRendering(cmd, m_swapchain->getImageViews()[imageIndex], extent, true);
     utils::setupViewportAndScissor(cmd, extent);
 
     const Buffer* compositeUniform = currentFrame.uniformBuffer.get();
     CompositeUBO composite_ubo;
-    composite_ubo.uExposure = 0.5;
+    composite_ubo.uExposure = m_imgui->getExposure();
 
     void     *data     = nullptr;
     vmaMapMemory(m_allocator->get(), compositeUniform->allocation(), &data);
@@ -256,7 +254,7 @@ void VulkanRenderer::drawFrame() {
             nullptr
         }
     };
-    m_descriptorSet->updateSet(writes);
+    m_compositeDescriptorSet->updateSet(writes);
 
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_compositePipeline->get());
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_compositePipeline->getLayout(), 0, m_compositeDescriptorSet->getCurrentSet(m_frameManager->getFrameIndex()), nullptr);
