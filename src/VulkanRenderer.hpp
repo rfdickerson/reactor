@@ -10,6 +10,7 @@
 #include "DescriptorSet.hpp"
 #include "FrameManager.hpp"
 #include "Image.hpp"
+#include "ImageStateTracker.h"
 #include "Imgui.hpp"
 #include "Pipeline.hpp"
 #include "Sampler.h"
@@ -57,6 +58,8 @@ private:
 
     std::unique_ptr<Imgui> m_imgui;
 
+    ImageStateTracker m_imageStateTracker;
+
     std::vector<std::unique_ptr<Image>> m_msaaImages;
     std::vector<vk::ImageView> m_msaaColorViews;
 
@@ -73,14 +76,12 @@ private:
 
     void handleSwapchainResizing();
     void beginCommandBuffer(vk::CommandBuffer cmd);
-    void prepareImageForRendering(vk::CommandBuffer cmd, vk::Image image);
     void beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView imageView, vk::Extent2D extent, bool clear);
     void updateUniformBuffer(Buffer* uniformBuffer);
     void bindDescriptorSets(vk::CommandBuffer cmd);
     void drawGeometry(vk::CommandBuffer cmd);
     void renderUI(vk::CommandBuffer cmd);
     void endDynamicRendering(vk::CommandBuffer cmd);
-    void prepareImageForPresent(vk::CommandBuffer cmd, vk::Image image);
     void endCommandBuffer(vk::CommandBuffer cmd);
     void submitAndPresent(uint32_t imageIndex);
 

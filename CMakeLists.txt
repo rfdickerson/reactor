@@ -40,7 +40,9 @@ add_executable(Reactor src/main.cpp
         src/Image.cpp
         src/Image.hpp
         src/Sampler.cpp
-        src/Sampler.h)
+        src/Sampler.h
+        src/ImageStateTracker.cpp
+        src/ImageStateTracker.h)
 
 target_link_libraries(Reactor PRIVATE Vulkan::Vulkan Vulkan::Headers glfw fmt::fmt spdlog::spdlog GPUOpen::VulkanMemoryAllocator glm::glm)
 target_link_libraries(Reactor PRIVATE imgui::imgui)
