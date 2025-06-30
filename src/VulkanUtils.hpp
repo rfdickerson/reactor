@@ -41,4 +41,19 @@ inline void setupViewportAndScissor(vk::CommandBuffer cmd, vk::Extent2D extent) 
     cmd.setScissor(0, scissor);
 }
 
+inline vk::SampleCountFlagBits mapSampleCountFlag(uint32_t sampleCount) {
+    switch (sampleCount) {
+    case 1:
+        return vk::SampleCountFlagBits::e1;
+    case 2:
+        return vk::SampleCountFlagBits::e2;
+    case 4:
+        return vk::SampleCountFlagBits::e4;
+    case 8:
+        return vk::SampleCountFlagBits::e8;
+    default:
+        return vk::SampleCountFlagBits::e1;
+    }
+}
+
 } // namespace reactor::utils
