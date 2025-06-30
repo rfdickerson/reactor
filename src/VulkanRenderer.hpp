@@ -15,6 +15,7 @@
 #include "Pipeline.hpp"
 #include "Sampler.h"
 #include "Swapchain.hpp"
+#include "UniformManager.hpp"
 #include "VulkanContext.hpp"
 #include "Window.hpp"
 
@@ -30,9 +31,7 @@ namespace reactor {
         std::string compositeFragShaderPath;
     };
 
-   struct CompositeUBO {
-       float uExposure = 0.1;
-   };
+
 
 class VulkanRenderer {
 public:
@@ -55,6 +54,7 @@ private:
     std::unique_ptr<Pipeline> m_compositePipeline;
     std::unique_ptr<DescriptorSet> m_compositeDescriptorSet;
     std::unique_ptr<Sampler> m_sampler;
+    std::unique_ptr<UniformManager> m_uniformManager;
 
     std::unique_ptr<Imgui> m_imgui;
 

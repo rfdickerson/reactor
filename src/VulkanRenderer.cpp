@@ -1,6 +1,7 @@
 #include "VulkanRenderer.hpp"
 
 #include "Buffer.hpp"
+#include "Uniforms.hpp"
 #include "VulkanUtils.hpp"
 #include "Window.hpp"
 
@@ -12,6 +13,12 @@ namespace reactor {
 VulkanRenderer::VulkanRenderer(const RendererConfig &config) : m_config(config) {
     createCoreVulkanObjects();
     createSwapchainAndFrameManager();
+
+    // Setup the Uniform Manager
+    m_uniformManager = std::make_unique<UniformManager>(*m_allocator, m_frameManager->getFramesInFlightCount());
+    m_uniformManager->registerUBO<SceneUBO>("scene");
+    m_uniformManager->registerUBO<CompositeUBO>("composite");
+
     createPipelineAndDescriptors();
     setupUI();
     createMSAAImage();
