@@ -10,7 +10,7 @@ namespace reactor {
     public:
         Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
                  const std::string& vertShaderPath, const std::string& fragShaderPath,
-                 const std::vector<vk::DescriptorSetLayout>& setLayouts);
+                 const std::vector<vk::DescriptorSetLayout>& setLayouts, uint32_t samples);
         ~Pipeline();
 
         vk::Pipeline get() const { return m_pipeline; }

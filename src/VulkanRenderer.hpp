@@ -8,13 +8,16 @@
 
 #include "Allocator.hpp"
 #include "DescriptorSet.hpp"
-#include "VulkanContext.hpp"
-#include "Window.hpp"
-#include "Swapchain.hpp"
 #include "FrameManager.hpp"
+#include "Image.hpp"
+#include "ImageStateTracker.h"
 #include "Imgui.hpp"
 #include "Pipeline.hpp"
-#include "Image.hpp"
+#include "Sampler.hpp"
+#include "Swapchain.hpp"
+#include "UniformManager.hpp"
+#include "VulkanContext.hpp"
+#include "Window.hpp"
 
 namespace reactor {
 
@@ -24,22 +27,11 @@ namespace reactor {
         std::string windowTitle;
         std::string vertShaderPath;
         std::string fragShaderPath;
+        std::string compositeVertShaderPath;
+        std::string compositeFragShaderPath;
     };
 
-    struct ImageWithView {
-        std::unique_ptr<Image> image;
-        vk::ImageView view;
-        vk::Device device;
 
-        ~ImageWithView() {
-            device.destroyImageView(view);
-        }
-    };
-
-    struct FrameImageResources {
-        ImageWithView msaaImage;
-        ImageWithView resolveImage;
-    };
 
 class VulkanRenderer {
 public:
@@ -59,7 +51,14 @@ private:
     std::unique_ptr<FrameManager> m_frameManager;
     std::unique_ptr<DescriptorSet> m_descriptorSet;
     std::unique_ptr<Pipeline> m_pipeline;
+    std::unique_ptr<Pipeline> m_compositePipeline;
+    std::unique_ptr<DescriptorSet> m_compositeDescriptorSet;
+    std::unique_ptr<Sampler> m_sampler;
+    std::unique_ptr<UniformManager> m_uniformManager;
+
     std::unique_ptr<Imgui> m_imgui;
+
+    ImageStateTracker m_imageStateTracker;
 
     std::vector<std::unique_ptr<Image>> m_msaaImages;
     std::vector<vk::ImageView> m_msaaColorViews;
@@ -73,17 +72,16 @@ private:
     void setupUI();
     void createMSAAImage();
     void createResolveImages();
+    void createSampler();
 
     void handleSwapchainResizing();
     void beginCommandBuffer(vk::CommandBuffer cmd);
-    void prepareImageForRendering(vk::CommandBuffer cmd, vk::Image image);
     void beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView imageView, vk::Extent2D extent, bool clear);
     void updateUniformBuffer(Buffer* uniformBuffer);
     void bindDescriptorSets(vk::CommandBuffer cmd);
     void drawGeometry(vk::CommandBuffer cmd);
     void renderUI(vk::CommandBuffer cmd);
     void endDynamicRendering(vk::CommandBuffer cmd);
-    void prepareImageForPresent(vk::CommandBuffer cmd, vk::Image image);
     void endCommandBuffer(vk::CommandBuffer cmd);
     void submitAndPresent(uint32_t imageIndex);
 

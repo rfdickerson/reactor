@@ -24,7 +24,7 @@ public:
     [[nodiscard]] vk::DescriptorSet getCurrentSet(size_t currentFrame) const { return m_sets[currentFrame]; }
 
     // helper for updating sets
-    void updateSet(size_t frame, const std::vector<vk::WriteDescriptorSet>& writes);
+    void updateSet(const std::vector<vk::WriteDescriptorSet>& writes);
 
     void updateUniformBuffer(size_t frame, const Buffer& buffer);
 

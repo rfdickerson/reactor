@@ -4,104 +4,12 @@
 
 namespace reactor::utils {
 
-/**
- * @brief Records a pipeline barrier to transition the layout of a Vulkan image.
- *
- * This is a general-purpose utility that provides full control over the
- * synchronization parameters of the barrier.
- *
- * @param cmd The command buffer to record the barrier into.
- * @param image The image to transition.
- * @param srcStageMask The pipeline stage(s) that must complete before the barrier.
- * @param dstStageMask The pipeline stage(s) that must wait for the barrier.
- * @param srcAccessMask The access types that must complete before the barrier.
- * @param dstAccessMask The access types that will be enabled after the barrier.
- * @param oldLayout The current layout of the image.
- * @param newLayout The desired new layout for the image.
- */
-inline void transitionImageLayout(vk::CommandBuffer cmd, vk::Image image,
-                                  vk::PipelineStageFlags srcStageMask,
-                                  vk::PipelineStageFlags dstStageMask,
-                                  vk::AccessFlags srcAccessMask, vk::AccessFlags dstAccessMask,
-                                  vk::ImageLayout oldLayout, vk::ImageLayout newLayout) {
 
-    vk::ImageMemoryBarrier barrier{};
-    barrier.oldLayout                       = oldLayout;
-    barrier.newLayout                       = newLayout;
-    barrier.srcQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image                           = image;
-    barrier.subresourceRange.aspectMask     = vk::ImageAspectFlagBits::eColor;
-    barrier.subresourceRange.baseMipLevel   = 0;
-    barrier.subresourceRange.levelCount     = 1;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount     = 1;
-    barrier.srcAccessMask                   = srcAccessMask;
-    barrier.dstAccessMask                   = dstAccessMask;
-
-    cmd.pipelineBarrier(srcStageMask, dstStageMask, {}, nullptr, nullptr, barrier);
-}
-
-inline void blitToSwapchain(vk::CommandBuffer cmd, vk::Image msaaImage, vk::Image swapchainImage,
-                            uint32_t width, uint32_t height) {
-
-    transitionImageLayout(
-        cmd, msaaImage, vk::PipelineStageFlagBits::eColorAttachmentOutput,
-        vk::PipelineStageFlagBits::eTransfer, vk::AccessFlagBits::eColorAttachmentWrite,
-        vk::AccessFlagBits::eTransferRead, vk::ImageLayout::eColorAttachmentOptimal,
-        vk::ImageLayout::eTransferSrcOptimal);
-
-    // transition the blit
-    transitionImageLayout(cmd, swapchainImage, vk::PipelineStageFlagBits::eTopOfPipe,
-                          vk::PipelineStageFlagBits::eTransfer, vk::AccessFlags(0),
-                          vk::AccessFlagBits::eTransferWrite, vk::ImageLayout::eUndefined,
-                          vk::ImageLayout::eTransferDstOptimal);
-
-    // Define the blit region (full image)
-    vk::ImageBlit blitRegion{};
-    blitRegion.srcSubresource.aspectMask     = vk::ImageAspectFlagBits::eColor;
-    blitRegion.srcSubresource.mipLevel       = 0;
-    blitRegion.srcSubresource.baseArrayLayer = 0;
-    blitRegion.srcSubresource.layerCount     = 1;
-    blitRegion.srcOffsets[0]                 = vk::Offset3D{0, 0, 0};
-    blitRegion.srcOffsets[1] =
-        vk::Offset3D{static_cast<int32_t>(width), static_cast<int32_t>(height), 1};
-
-    blitRegion.dstSubresource.aspectMask     = vk::ImageAspectFlagBits::eColor;
-    blitRegion.dstSubresource.mipLevel       = 0;
-    blitRegion.dstSubresource.baseArrayLayer = 0;
-    blitRegion.dstSubresource.layerCount     = 1;
-    blitRegion.dstOffsets[0]                 = vk::Offset3D{0, 0, 0};
-    blitRegion.dstOffsets[1] =
-        vk::Offset3D{static_cast<int32_t>(width), static_cast<int32_t>(height), 1};
-
-    // Blit the MSAA image to the swapchain image, converting formats
-    cmd.blitImage(msaaImage, vk::ImageLayout::eTransferSrcOptimal, swapchainImage,
-                  vk::ImageLayout::eTransferDstOptimal, 1, &blitRegion,
-                  vk::Filter::eNearest // Use vk::Filter::eLinear if filtering is desired
-    );
-
-    // Transition the swapchain image for presentation
-    transitionImageLayout(cmd, swapchainImage, vk::PipelineStageFlagBits::eTransfer,
-                          vk::PipelineStageFlagBits::eBottomOfPipe,
-                          vk::AccessFlagBits::eTransferWrite, {},
-                          vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::ePresentSrcKHR);
-
-}
 
 inline void resolveMSAAImageTo(vk::CommandBuffer cmd, vk::Image msaaImage, vk::Image resolveImage,
                                uint32_t width, uint32_t height) {
 
-    // transition image to transfer src optimal
-    transitionImageLayout(
-        cmd, msaaImage, vk::PipelineStageFlagBits::eColorAttachmentOutput,
-        vk::PipelineStageFlagBits::eTransfer, vk::AccessFlagBits::eColorAttachmentWrite, vk::AccessFlagBits::eTransferRead,
-        vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::eTransferSrcOptimal);
 
-    transitionImageLayout(cmd, resolveImage, vk::PipelineStageFlagBits::eTopOfPipe,
-                          vk::PipelineStageFlagBits::eTransfer, {},
-                          vk::AccessFlagBits::eTransferWrite, vk::ImageLayout::eUndefined,
-                          vk::ImageLayout::eTransferDstOptimal);
 
     vk::ImageResolve resolveRegion{};
     resolveRegion.srcSubresource.aspectMask     = vk::ImageAspectFlagBits::eColor;
@@ -117,13 +25,6 @@ inline void resolveMSAAImageTo(vk::CommandBuffer cmd, vk::Image msaaImage, vk::I
                      vk::ImageLayout::eTransferSrcOptimal,
                      resolveImage, // dstImage
                      vk::ImageLayout::eTransferDstOptimal, 1, &resolveRegion);
-
-    // after resolving resolve is not in Color attachment optimal for next stage blitting
-    transitionImageLayout(cmd, resolveImage,
-                         vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                         vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eColorAttachmentWrite,
-                         vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eColorAttachmentOptimal);
-
 }
 
 inline void setupViewportAndScissor(vk::CommandBuffer cmd, vk::Extent2D extent) {
@@ -138,6 +39,21 @@ inline void setupViewportAndScissor(vk::CommandBuffer cmd, vk::Extent2D extent) 
 
     const vk::Rect2D scissor{{0, 0}, extent};
     cmd.setScissor(0, scissor);
+}
+
+inline vk::SampleCountFlagBits mapSampleCountFlag(uint32_t sampleCount) {
+    switch (sampleCount) {
+    case 1:
+        return vk::SampleCountFlagBits::e1;
+    case 2:
+        return vk::SampleCountFlagBits::e2;
+    case 4:
+        return vk::SampleCountFlagBits::e4;
+    case 8:
+        return vk::SampleCountFlagBits::e8;
+    default:
+        return vk::SampleCountFlagBits::e1;
+    }
 }
 
 } // namespace reactor::utils
