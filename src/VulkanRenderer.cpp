@@ -1,6 +1,7 @@
 #include "VulkanRenderer.hpp"
 
 #include "Buffer.hpp"
+#include "Uniforms.hpp"
 #include "VulkanUtils.hpp"
 #include "Window.hpp"
 
@@ -12,10 +13,17 @@ namespace reactor {
 VulkanRenderer::VulkanRenderer(const RendererConfig &config) : m_config(config) {
     createCoreVulkanObjects();
     createSwapchainAndFrameManager();
+
+    // Setup the Uniform Manager
+    m_uniformManager = std::make_unique<UniformManager>(*m_allocator, m_frameManager->getFramesInFlightCount());
+    m_uniformManager->registerUBO<SceneUBO>("scene");
+    m_uniformManager->registerUBO<CompositeUBO>("composite");
+
     createPipelineAndDescriptors();
     setupUI();
     createMSAAImage();
     createResolveImages();
+    createSampler();
 }
 
 void VulkanRenderer::createCoreVulkanObjects() {
@@ -34,6 +42,10 @@ void VulkanRenderer::createSwapchainAndFrameManager() {
     uint32_t swapchainImageCount = m_swapchain->getImageViews().size();
     m_frameManager = std::make_unique<FrameManager>(m_context->device(), *m_allocator, 0, 2,
                                                     swapchainImageCount);
+
+    for (const auto& image : m_swapchain->getImages()) {
+        m_imageStateTracker.recordState(image, vk::ImageLayout::eUndefined);
+    }
 }
 
 void VulkanRenderer::createPipelineAndDescriptors() {
@@ -50,7 +62,20 @@ void VulkanRenderer::createPipelineAndDescriptors() {
     std::vector setLayouts = {m_descriptorSet->getLayout()};
 
     m_pipeline = std::make_unique<Pipeline>(m_context->device(), vk::Format::eR16G16B16A16Sfloat,
-                                            vertShaderPath, fragShaderPath, setLayouts);
+                                            vertShaderPath, fragShaderPath, setLayouts, 4);
+
+    std::vector compositeBindings = {
+        vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment),
+        vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
+    };
+
+    m_compositeDescriptorSet = std::make_unique<DescriptorSet>(m_context->device(), 2, compositeBindings);
+    std::vector compositeSetLayouts = {m_compositeDescriptorSet->getLayout()};
+
+    vk::Format swapchainFormat = m_swapchain->getFormat();
+
+    m_compositePipeline = std::make_unique<Pipeline>(m_context->device(), swapchainFormat,
+                                            m_config.compositeVertShaderPath, m_config.compositeFragShaderPath, compositeSetLayouts, 1);
 }
 
 void VulkanRenderer::handleSwapchainResizing() {
@@ -88,14 +113,6 @@ void VulkanRenderer::beginCommandBuffer(vk::CommandBuffer cmd) {
     cmd.begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 }
 
-void VulkanRenderer::prepareImageForRendering(vk::CommandBuffer cmd, vk::Image image) {
-    utils::transitionImageLayout(cmd, image, vk::PipelineStageFlagBits::eTopOfPipe,
-                                 vk::PipelineStageFlagBits::eColorAttachmentOutput, {},
-                                 vk::AccessFlagBits::eColorAttachmentWrite,
-                                 vk::ImageLayout::eUndefined,
-                                 vk::ImageLayout::eColorAttachmentOptimal);
-}
-
 void VulkanRenderer::bindDescriptorSets(vk::CommandBuffer cmd) {
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipeline->getLayout(), 0,
                            m_descriptorSet->getCurrentSet(m_frameManager->getFrameIndex()),
@@ -114,12 +131,6 @@ void VulkanRenderer::renderUI(vk::CommandBuffer cmd) {
 
 void VulkanRenderer::endDynamicRendering(vk::CommandBuffer cmd) { cmd.endRendering(); }
 
-void VulkanRenderer::prepareImageForPresent(vk::CommandBuffer cmd, vk::Image image) {
-    utils::transitionImageLayout(
-        cmd, image, vk::PipelineStageFlagBits::eColorAttachmentOutput,
-        vk::PipelineStageFlagBits::eBottomOfPipe, vk::AccessFlagBits::eColorAttachmentWrite, {},
-        vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR);
-}
 
 void VulkanRenderer::endCommandBuffer(vk::CommandBuffer cmd) { cmd.end(); }
 
@@ -129,12 +140,13 @@ void VulkanRenderer::submitAndPresent(uint32_t imageIndex) {
 }
 
 void VulkanRenderer::updateUniformBuffer(Buffer *uniformBuffer) {
-    glm::mat4 identity = glm::mat4(1.0f);
+    constexpr auto identity = glm::mat4(1.0f);
     void     *data     = nullptr;
     vmaMapMemory(m_allocator->get(), uniformBuffer->allocation(), &data);
     memcpy(data, &identity, sizeof(glm::mat4));
     vmaUnmapMemory(m_allocator->get(), uniformBuffer->allocation());
     m_descriptorSet->updateUniformBuffer(m_frameManager->getFrameIndex(), *uniformBuffer);
+
 }
 
 void VulkanRenderer::beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView imageView,
@@ -177,31 +189,159 @@ void VulkanRenderer::drawFrame() {
     const vk::ImageView msaaView     = m_msaaColorViews[frameIdx];
     const vk::Image     resolveImage = m_resolveImages[frameIdx]->get();
 
+    SceneUBO sceneData;
+    sceneData.view = glm::mat4(1.0);
+    sceneData.projection = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 100.0f);
+    m_uniformManager->update<SceneUBO>(frameIdx, sceneData);
+
+    CompositeUBO compositeData;
+    compositeData.uExposure = m_imgui->getExposure();
+    compositeData.uContrast = m_imgui->getContrast();
+    compositeData.uSaturation = m_imgui->getSaturation();
+
+    m_uniformManager->update<CompositeUBO>(frameIdx, compositeData);
+
     beginCommandBuffer(cmd);
-    utils::transitionImageLayout(cmd,
+
+    // --- 1. Geometry Pass ---
+    // Transition the MSAA image so we can render the main scene into it.
+    // Its layout was likely UNDEFINED (on first use) or TRANSFER_SRC (from previous frame's resolve).
+    m_imageStateTracker.transition(
+        cmd,
         msaaImage,
-        vk::PipelineStageFlagBits::eTopOfPipe,
-                          vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                          {}, // src
-                          vk::AccessFlagBits::eColorAttachmentWrite,
-                          vk::ImageLayout::eUndefined, vk::ImageLayout::eColorAttachmentOptimal);
+        vk::ImageLayout::eColorAttachmentOptimal,
+        vk::PipelineStageFlagBits::eTopOfPipe,          // Source Stage
+        vk::PipelineStageFlagBits::eColorAttachmentOutput, // Destination Stage
+        {},                                             // Source Access
+        vk::AccessFlagBits::eColorAttachmentWrite       // Destination Access
+    );
 
     beginDynamicRendering(cmd, msaaView, extent);
     utils::setupViewportAndScissor(cmd, extent);
-    updateUniformBuffer(currentFrame.uniformBuffer.get());
+
+    vk::DescriptorBufferInfo sceneBufferInfo = m_uniformManager->getDescriptorInfo<SceneUBO>(frameIdx);
+    vk::WriteDescriptorSet sceneWrite{};
+    sceneWrite.dstSet = m_descriptorSet->getCurrentSet(frameIdx);
+    sceneWrite.dstBinding = 0;
+    sceneWrite.descriptorType = vk::DescriptorType::eUniformBuffer;
+    sceneWrite.descriptorCount = 1;
+    sceneWrite.pBufferInfo = &sceneBufferInfo;
+
+    m_descriptorSet->updateSet({sceneWrite});
+
     bindDescriptorSets(cmd);
     drawGeometry(cmd);
-
     endDynamicRendering(cmd);
+
+    // --- 2. MSAA Resolve ---
+    // Resolve the multi-sampled image into a standard image for post-processing.
+    // vkCmdResolveImage requires the source to be TRANSFER_SRC and destination to be TRANSFER_DST.
+
+    // Transition MSAA image from COLOR_ATTACHMENT to TRANSFER_SRC_OPTIMAL to be read by the resolve command.
+    m_imageStateTracker.transition(
+        cmd,
+        msaaImage,
+        vk::ImageLayout::eTransferSrcOptimal,
+        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        vk::PipelineStageFlagBits::eTransfer,
+        vk::AccessFlagBits::eColorAttachmentWrite,
+        vk::AccessFlagBits::eTransferRead
+    );
+
+    // Transition the Resolve image to TRANSFER_DST_OPTIMAL to be written to by the resolve command.
+    m_imageStateTracker.transition(
+        cmd,
+        resolveImage,
+        vk::ImageLayout::eTransferDstOptimal,
+        vk::PipelineStageFlagBits::eTopOfPipe,
+        vk::PipelineStageFlagBits::eTransfer,
+        {},
+        vk::AccessFlagBits::eTransferWrite
+    );
 
     utils::resolveMSAAImageTo(cmd, msaaImage, resolveImage, width, height);
 
-    utils::blitToSwapchain(cmd, resolveImage, swapchainImage, width, height);
+    // --- 3. Composite Pass ---
+    // This pass reads from the resolved image and writes to the swapchain image.
 
-    // render the UI here
+    // Transition the Resolve image from TRANSFER_DST to SHADER_READ_ONLY so it can be used as a texture.
+    m_imageStateTracker.transition(
+        cmd,
+        resolveImage,
+        vk::ImageLayout::eShaderReadOnlyOptimal,
+        vk::PipelineStageFlagBits::eTransfer,
+        vk::PipelineStageFlagBits::eFragmentShader,
+        vk::AccessFlagBits::eTransferWrite,
+        vk::AccessFlagBits::eShaderRead
+    );
+
+    // Transition the Swapchain image to COLOR_ATTACHMENT_OPTIMAL so we can render the composite result to it.
+    m_imageStateTracker.transition(
+        cmd,
+        swapchainImage,
+        vk::ImageLayout::eColorAttachmentOptimal,
+        vk::PipelineStageFlagBits::eTopOfPipe,
+        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        {},
+        vk::AccessFlagBits::eColorAttachmentWrite
+    );
+
+    beginDynamicRendering(cmd, m_swapchain->getImageViews()[imageIndex], extent, true);
+    utils::setupViewportAndScissor(cmd, extent);
+
+    vk::DescriptorBufferInfo compositeBufferInfo = m_uniformManager->getDescriptorInfo<CompositeUBO>(frameIdx);
+
+    vk::DescriptorImageInfo imageInfo = {};
+    imageInfo.imageView = m_resolveViews[frameIdx];
+    imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    imageInfo.sampler = m_sampler->get();
+
+    std::vector writes = {
+        vk::WriteDescriptorSet{
+            m_compositeDescriptorSet->getCurrentSet(frameIdx),
+            0,
+            0,
+            1,
+            vk::DescriptorType::eCombinedImageSampler,
+            &imageInfo,
+            nullptr,
+        },
+        vk::WriteDescriptorSet{
+            m_compositeDescriptorSet->getCurrentSet(frameIdx),
+            1,
+            0,
+            1,
+            vk::DescriptorType::eUniformBuffer,
+            nullptr,
+            &compositeBufferInfo,
+            nullptr
+        }
+    };
+    m_compositeDescriptorSet->updateSet(writes);
+
+    cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_compositePipeline->get());
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_compositePipeline->getLayout(), 0, m_compositeDescriptorSet->getCurrentSet(m_frameManager->getFrameIndex()), nullptr);
+    cmd.draw(3, 1, 0, 0);
+    endDynamicRendering(cmd);
+
+    // --- 4. UI Pass ---
+    // The UI is rendered on top of the composited scene.
+    // The swapchain image is already in COLOR_ATTACHMENT_OPTIMAL, so no transition is needed.
     beginDynamicRendering(cmd, m_swapchain->getImageViews()[imageIndex], extent, false);
     renderUI(cmd);
     endDynamicRendering(cmd);
+
+    // --- 5. Prepare for Presentation ---
+    // Transition the swapchain image from COLOR_ATTACHMENT to PRESENT_SRC_KHR for the presentation engine.
+    m_imageStateTracker.transition(
+        cmd,
+        swapchainImage,
+        vk::ImageLayout::ePresentSrcKHR,
+        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        vk::PipelineStageFlagBits::eBottomOfPipe,
+        vk::AccessFlagBits::eColorAttachmentWrite,
+        {}
+    );
 
     endCommandBuffer(cmd);
 
@@ -242,6 +382,8 @@ void VulkanRenderer::createMSAAImage() {
         m_msaaImages[i] =
             std::make_unique<Image>(*m_allocator, imageInfo, VMA_MEMORY_USAGE_GPU_ONLY);
 
+        m_imageStateTracker.recordState(m_msaaImages[i]->get(), vk::ImageLayout::eUndefined);
+
         vk::ImageViewCreateInfo viewInfo{};
         viewInfo.image    = m_msaaImages[i]->get(); // Get the VkImage from your new Image object
         viewInfo.viewType = vk::ImageViewType::e2D;
@@ -276,7 +418,7 @@ void VulkanRenderer::createResolveImages() {
         imageInfo.tiling        = vk::ImageTiling::eOptimal;
         imageInfo.initialLayout = vk::ImageLayout::eUndefined;
         imageInfo.usage         = vk::ImageUsageFlagBits::eColorAttachment |
-                          vk::ImageUsageFlagBits::eTransferSrc |
+                vk::ImageUsageFlagBits::eSampled |
                           vk::ImageUsageFlagBits::eTransferDst;
         imageInfo.samples     = vk::SampleCountFlagBits::e1; // Resolve is NOT multisampled!
         imageInfo.sharingMode = vk::SharingMode::eExclusive;
@@ -284,6 +426,8 @@ void VulkanRenderer::createResolveImages() {
         // Create the Image (assume you have your own Image wrapper e.g. using VMA)
         m_resolveImages[i] =
             std::make_unique<Image>(*m_allocator, imageInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+
+        m_imageStateTracker.recordState(m_resolveImages[i]->get(), vk::ImageLayout::eUndefined);
 
         vk::ImageViewCreateInfo viewInfo{};
         viewInfo.image                           = m_resolveImages[i]->get();
@@ -297,6 +441,26 @@ void VulkanRenderer::createResolveImages() {
 
         m_resolveViews[i] = m_context->device().createImageView(viewInfo);
     }
+}
+
+void VulkanRenderer::createSampler() {
+    vk::SamplerCreateInfo samplerInfo{};
+    samplerInfo.magFilter = vk::Filter::eLinear;
+    samplerInfo.minFilter = vk::Filter::eLinear;
+    samplerInfo.mipmapMode = vk::SamplerMipmapMode::eLinear;
+    samplerInfo.addressModeU = vk::SamplerAddressMode::eClampToEdge;
+    samplerInfo.addressModeV = vk::SamplerAddressMode::eClampToEdge;
+    samplerInfo.addressModeW = vk::SamplerAddressMode::eClampToEdge;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.anisotropyEnable = VK_FALSE;
+    samplerInfo.maxAnisotropy = 1.0f;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = vk::CompareOp::eAlways;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = 0.0f;
+    samplerInfo.borderColor = vk::BorderColor::eFloatOpaqueWhite;
+
+    m_sampler = std::make_unique<Sampler>(m_context->device(), samplerInfo);
 }
 
 } // namespace reactor

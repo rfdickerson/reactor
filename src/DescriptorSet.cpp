@@ -57,4 +57,8 @@ namespace reactor {
 
         m_device.updateDescriptorSets(1, &write, 0, nullptr);
     }
+
+void DescriptorSet::updateSet(const std::vector<vk::WriteDescriptorSet> &writes) {
+        m_device.updateDescriptorSets(static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+    }
 } // reactor

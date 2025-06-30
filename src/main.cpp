@@ -11,6 +11,8 @@ int main() {
     config.windowTitle = "Reactor";
     config.vertShaderPath = "../shaders/triangle.vert.spv";
     config.fragShaderPath = "../shaders/triangle.frag.spv";
+    config.compositeVertShaderPath = "../shaders/composite.vert.spv";
+    config.compositeFragShaderPath = "../shaders/composite.frag.spv";
 
     reactor::VulkanRenderer renderer(config);
     renderer.run();

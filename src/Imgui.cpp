@@ -83,7 +83,13 @@ void Imgui::createFrame() {
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
-    ImGui::ShowDemoWindow();
+    //ImGui::ShowDemoWindow();
+        ImGui::Begin("Composite");
+        ImGui::SliderFloat("Exposure", &m_exposure, 0.0, 1.0);
+        ImGui::SliderFloat("Contrast", &m_contrast, 0.0, 1.0);
+        ImGui::SliderFloat("Saturation", &m_saturation, 0.0, 1.0);
+
+        ImGui::End();
 }
 
     void Imgui::drawFrame(vk::CommandBuffer commandBuffer) {
