@@ -15,6 +15,7 @@ public:
     template <typename T>
     void registerUBO(const std::string& name) {
         m_uniformBuffers[name] = createFrameSpecificBuffers(sizeof(T));
+        m_uboTypeMap[std::type_index(typeid(T))] = name;
     }
 
     // Update the buffer for a specific UBO type on the current frame.

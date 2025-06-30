@@ -189,6 +189,15 @@ void VulkanRenderer::drawFrame() {
     const vk::ImageView msaaView     = m_msaaColorViews[frameIdx];
     const vk::Image     resolveImage = m_resolveImages[frameIdx]->get();
 
+    SceneUBO sceneData;
+    sceneData.view = glm::mat4(1.0);
+    sceneData.projection = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 100.0f);
+    m_uniformManager->update<SceneUBO>(frameIdx, sceneData);
+
+    CompositeUBO compositeData;
+    compositeData.uExposure = m_imgui->getExposure();
+    m_uniformManager->update<CompositeUBO>(frameIdx, compositeData);
+
     beginCommandBuffer(cmd);
 
     // --- 1. Geometry Pass ---
@@ -206,7 +215,17 @@ void VulkanRenderer::drawFrame() {
 
     beginDynamicRendering(cmd, msaaView, extent);
     utils::setupViewportAndScissor(cmd, extent);
-    updateUniformBuffer(currentFrame.uniformBuffer.get());
+
+    vk::DescriptorBufferInfo sceneBufferInfo = m_uniformManager->getDescriptorInfo<SceneUBO>(frameIdx);
+    vk::WriteDescriptorSet sceneWrite{};
+    sceneWrite.dstSet = m_descriptorSet->getCurrentSet(frameIdx);
+    sceneWrite.dstBinding = 0;
+    sceneWrite.descriptorType = vk::DescriptorType::eUniformBuffer;
+    sceneWrite.descriptorCount = 1;
+    sceneWrite.pBufferInfo = &sceneBufferInfo;
+
+    m_descriptorSet->updateSet({sceneWrite});
+
     bindDescriptorSets(cmd);
     drawGeometry(cmd);
     endDynamicRendering(cmd);
@@ -267,24 +286,12 @@ void VulkanRenderer::drawFrame() {
     beginDynamicRendering(cmd, m_swapchain->getImageViews()[imageIndex], extent, true);
     utils::setupViewportAndScissor(cmd, extent);
 
-    const Buffer* compositeUniform = currentFrame.uniformBuffer.get();
-    CompositeUBO composite_ubo;
-    composite_ubo.uExposure = m_imgui->getExposure();
-
-    void     *data     = nullptr;
-    vmaMapMemory(m_allocator->get(), compositeUniform->allocation(), &data);
-    memcpy(data, &composite_ubo, sizeof(CompositeUBO));
-    vmaUnmapMemory(m_allocator->get(), compositeUniform->allocation());
+    vk::DescriptorBufferInfo compositeBufferInfo = m_uniformManager->getDescriptorInfo<CompositeUBO>(frameIdx);
 
     vk::DescriptorImageInfo imageInfo = {};
     imageInfo.imageView = m_resolveViews[frameIdx];
     imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
     imageInfo.sampler = m_sampler->get();
-
-    vk::DescriptorBufferInfo bufferInfo = {};
-    bufferInfo.buffer = compositeUniform->buffer();
-    bufferInfo.offset = 0;
-    bufferInfo.range  = sizeof(CompositeUBO);
 
     std::vector writes = {
         vk::WriteDescriptorSet{
@@ -303,7 +310,7 @@ void VulkanRenderer::drawFrame() {
             1,
             vk::DescriptorType::eUniformBuffer,
             nullptr,
-            &bufferInfo,
+            &compositeBufferInfo,
             nullptr
         }
     };
