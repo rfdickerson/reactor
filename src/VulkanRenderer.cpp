@@ -196,6 +196,9 @@ void VulkanRenderer::drawFrame() {
 
     CompositeUBO compositeData;
     compositeData.uExposure = m_imgui->getExposure();
+    compositeData.uContrast = m_imgui->getContrast();
+    compositeData.uSaturation = m_imgui->getSaturation();
+
     m_uniformManager->update<CompositeUBO>(frameIdx, compositeData);
 
     beginCommandBuffer(cmd);

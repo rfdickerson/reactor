@@ -13,5 +13,9 @@ struct LightingUBO {
 };
 
 struct CompositeUBO {
-    float uExposure = 0.1;
+    float uExposure = 1.0f;
+    float uContrast = 1.0f;
+    float uSaturation = 1.0f;
+    float uVignetteIntensity = 0.5f;
+    float uVignetteFalloff = 0.5f;
 };
