@@ -1,8 +1,4 @@
-//
-// Created by rfdic on 6/27/2025.
-//
-
-#include "Sampler.h"
+#include "Sampler.hpp"
 
 namespace reactor {
 

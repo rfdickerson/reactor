@@ -1,10 +1,4 @@
-//
-// Created by rfdic on 6/27/2025.
-//
-
-#ifndef SAMPLER_H
-#define SAMPLER_H
-#include "Sampler.h"
+#pragma once
 
 #include <vulkan/vulkan.hpp>
 
@@ -15,7 +9,7 @@ public:
     Sampler(vk::Device device, const vk::SamplerCreateInfo& createInfo);
     ~Sampler();
 
-    vk::Sampler get() const { return m_sampler; }
+    [[nodiscard]] vk::Sampler get() const { return m_sampler; }
 
 private:
     vk::Device m_device;
@@ -25,4 +19,3 @@ private:
 
 } // reactor
 
-#endif //SAMPLER_H

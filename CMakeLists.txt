@@ -40,7 +40,7 @@ add_executable(Reactor src/main.cpp
         src/Image.cpp
         src/Image.hpp
         src/Sampler.cpp
-        src/Sampler.h
+        src/Sampler.hpp
         src/ImageStateTracker.cpp
         src/ImageStateTracker.h
         src/Uniforms.hpp

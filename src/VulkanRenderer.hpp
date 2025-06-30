@@ -13,7 +13,7 @@
 #include "ImageStateTracker.h"
 #include "Imgui.hpp"
 #include "Pipeline.hpp"
-#include "Sampler.h"
+#include "Sampler.hpp"
 #include "Swapchain.hpp"
 #include "UniformManager.hpp"
 #include "VulkanContext.hpp"
