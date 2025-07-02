@@ -8,7 +8,7 @@
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
-#include "Window.hpp"
+#include "../core/Window.hpp"
 
 namespace reactor {
     class Swapchain {

@@ -2,6 +2,7 @@
 #include <fstream>
 #include <stdexcept>
 
+#include "ShaderModule.hpp"
 #include "VulkanUtils.hpp"
 
 namespace reactor {
@@ -17,13 +18,6 @@ std::vector<char> Pipeline::readFile(const std::string &filename) const {
     return buffer;
 }
 
-vk::ShaderModule Pipeline::createShaderModule(const std::vector<char> &code) {
-    vk::ShaderModuleCreateInfo createInfo{};
-    createInfo.codeSize = code.size();
-    createInfo.pCode    = reinterpret_cast<const uint32_t *>(code.data());
-    return m_device.createShaderModule(createInfo);
-}
-
 Pipeline::Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
                    const std::string &vertShaderPath, const std::string &fragShaderPath,
                    const std::vector<vk::DescriptorSetLayout> &setLayouts, uint32_t samples)
@@ -32,18 +26,17 @@ Pipeline::Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
     auto vertShaderCode = readFile(vertShaderPath);
     auto fragShaderCode = readFile(fragShaderPath);
 
-    // 2. Create shader modules
-    vk::ShaderModule vertShaderModule = createShaderModule(vertShaderCode);
-    vk::ShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+    auto vertShaderModule = ShaderModule(m_device, vertShaderCode);
+    auto fragShaderModule = ShaderModule(m_device, fragShaderCode);
 
     vk::PipelineShaderStageCreateInfo vertStageInfo{};
     vertStageInfo.stage  = vk::ShaderStageFlagBits::eVertex;
-    vertStageInfo.module = vertShaderModule;
+    vertStageInfo.module = vertShaderModule.getHandle();
     vertStageInfo.pName  = "main";
 
     vk::PipelineShaderStageCreateInfo fragStageInfo{};
     fragStageInfo.stage  = vk::ShaderStageFlagBits::eFragment;
-    fragStageInfo.module = fragShaderModule;
+    fragStageInfo.module = fragShaderModule.getHandle();
     fragStageInfo.pName  = "main";
 
     vk::PipelineShaderStageCreateInfo shaderStages[] = {vertStageInfo, fragStageInfo};
@@ -133,9 +126,6 @@ Pipeline::Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
 
     m_pipeline = pipelineResult.value;
 
-    // Cleanup shader modules
-    m_device.destroyShaderModule(vertShaderModule);
-    m_device.destroyShaderModule(fragShaderModule);
 }
 
 Pipeline::~Pipeline() {

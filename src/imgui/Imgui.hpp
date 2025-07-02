@@ -4,8 +4,8 @@
 
 #ifndef IMGUI_HPP
 #define IMGUI_HPP
-#include "VulkanContext.hpp"
-#include "Window.hpp"
+#include "../core/Window.hpp"
+#include "../vulkan/VulkanContext.hpp"
 
 namespace reactor {
 

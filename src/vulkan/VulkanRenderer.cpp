@@ -1,9 +1,9 @@
 #include "VulkanRenderer.hpp"
 
+#include "../core/Uniforms.hpp"
+#include "../core/Window.hpp"
 #include "Buffer.hpp"
-#include "Uniforms.hpp"
 #include "VulkanUtils.hpp"
-#include "Window.hpp"
 
 #include <cstring>
 #include <glm/glm.hpp>

@@ -13,39 +13,41 @@ find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 
-add_executable(Reactor src/main.cpp
-        src/VulkanContext.cpp
-        src/VulkanContext.hpp
+add_executable(Reactor src/core/main.cpp
+        src/vulkan/VulkanContext.cpp
+        src/vulkan/VulkanContext.hpp
         src/pch.hpp
-        src/VulkanRenderer.hpp
-        src/VulkanRenderer.cpp
-        src/Window.cpp
-        src/Window.hpp
-        src/Swapchain.hpp
-        src/FrameManager.hpp
-        src/Swapchain.cpp
-        src/FrameManager.cpp
-        src/Pipeline.cpp
-        src/Pipeline.hpp
-        src/DescriptorSet.cpp
-        src/DescriptorSet.hpp
-        src/Allocator.cpp
-        src/Allocator.hpp
-        src/vk_mem_alloc.cpp
-        src/Buffer.cpp
-        src/Buffer.hpp
-        src/Imgui.cpp
-        src/Imgui.hpp
-        src/VulkanUtils.hpp
-        src/Image.cpp
-        src/Image.hpp
-        src/Sampler.cpp
-        src/Sampler.hpp
-        src/ImageStateTracker.cpp
-        src/ImageStateTracker.h
-        src/Uniforms.hpp
-        src/UniformManager.cpp
-        src/UniformManager.hpp)
+        src/vulkan/VulkanRenderer.hpp
+        src/vulkan/VulkanRenderer.cpp
+        src/core/Window.cpp
+        src/core/Window.hpp
+        src/vulkan/Swapchain.hpp
+        src/vulkan/FrameManager.hpp
+        src/vulkan/Swapchain.cpp
+        src/vulkan/FrameManager.cpp
+        src/vulkan/Pipeline.cpp
+        src/vulkan/Pipeline.hpp
+        src/vulkan/DescriptorSet.cpp
+        src/vulkan/DescriptorSet.hpp
+        src/vulkan/Allocator.cpp
+        src/vulkan/Allocator.hpp
+        src/vulkan/vk_mem_alloc.cpp
+        src/vulkan/Buffer.cpp
+        src/vulkan/Buffer.hpp
+        src/imgui/Imgui.cpp
+        src/imgui/Imgui.hpp
+        src/vulkan/VulkanUtils.hpp
+        src/vulkan/Image.cpp
+        src/vulkan/Image.hpp
+        src/vulkan/Sampler.cpp
+        src/vulkan/Sampler.hpp
+        src/vulkan/ImageStateTracker.cpp
+        src/vulkan/ImageStateTracker.h
+        src/core/Uniforms.hpp
+        src/vulkan/UniformManager.cpp
+        src/vulkan/UniformManager.hpp
+        src/vulkan/ShaderModule.cpp
+        src/vulkan/ShaderModule.hpp)
 
 target_link_libraries(Reactor PRIVATE Vulkan::Vulkan Vulkan::Headers glfw fmt::fmt spdlog::spdlog GPUOpen::VulkanMemoryAllocator glm::glm)
 target_link_libraries(Reactor PRIVATE imgui::imgui)

@@ -6,18 +6,18 @@
 #define VULKANRENDERER_HPP
 #include <memory>
 
+#include "../core/Window.hpp"
+#include "../imgui/Imgui.hpp"
 #include "Allocator.hpp"
 #include "DescriptorSet.hpp"
 #include "FrameManager.hpp"
 #include "Image.hpp"
 #include "ImageStateTracker.h"
-#include "Imgui.hpp"
 #include "Pipeline.hpp"
 #include "Sampler.hpp"
 #include "Swapchain.hpp"
 #include "UniformManager.hpp"
 #include "VulkanContext.hpp"
-#include "Window.hpp"
 
 namespace reactor {
 
