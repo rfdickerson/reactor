@@ -26,7 +26,8 @@ VulkanRenderer::VulkanRenderer(const RendererConfig &config) : m_config(config) 
     createSampler();
 
     m_camera = std::make_unique<Camera>();
-    m_eventManager->subscribe(EventType::MouseMoved, m_camera.get());
+    m_orbitController = std::make_unique<OrbitController>(*m_camera);
+    m_eventManager->subscribe(EventType::MouseMoved, m_orbitController.get());
 }
 
 void VulkanRenderer::createCoreVulkanObjects() {
@@ -147,12 +148,13 @@ void VulkanRenderer::submitAndPresent(uint32_t imageIndex) {
 }
 
 void VulkanRenderer::updateUniformBuffer(Buffer *uniformBuffer) {
-    constexpr auto identity = glm::mat4(1.0f);
-    void     *data     = nullptr;
-    vmaMapMemory(m_allocator->get(), uniformBuffer->allocation(), &data);
-    memcpy(data, &identity, sizeof(glm::mat4));
-    vmaUnmapMemory(m_allocator->get(), uniformBuffer->allocation());
-    m_descriptorSet->updateUniformBuffer(m_frameManager->getFrameIndex(), *uniformBuffer);
+
+    SceneUBO ubo{};
+    ubo.view = m_camera->getView();
+    ubo.projection = m_camera->getProjection();
+
+    m_uniformManager->update<SceneUBO>(m_frameManager->getFrameIndex(), ubo);
+
 
 }
 
@@ -225,6 +227,12 @@ void VulkanRenderer::drawFrame() {
 
     beginDynamicRendering(cmd, msaaView, extent);
     utils::setupViewportAndScissor(cmd, extent);
+
+    SceneUBO ubo{};
+    ubo.view = m_camera->getView();
+    ubo.projection = m_camera->getProjection();
+
+    m_uniformManager->update<SceneUBO>(frameIdx, ubo);
 
     vk::DescriptorBufferInfo sceneBufferInfo = m_uniformManager->getDescriptorInfo<SceneUBO>(frameIdx);
     vk::WriteDescriptorSet sceneWrite{};

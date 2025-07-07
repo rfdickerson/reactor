@@ -5,15 +5,15 @@
 
 namespace reactor {
 
-class Camera final : public IEventListener {
+class Camera {
 public:
 
     Camera();
 
-    void onEvent(const Event& event) override;
-
     [[nodiscard]] glm::mat4 getView() const { return m_view; }
     [[nodiscard]] glm::mat4 getProjection() const { return m_projection; }
+
+    void setView(const glm::mat4& view) { m_view = view; }
 
 private:
     glm::mat4 m_view;

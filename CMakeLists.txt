@@ -51,7 +51,9 @@ add_executable(Reactor src/core/main.cpp
         src/core/EventManager.hpp
         src/core/EventManager.cpp
         src/core/Camera.cpp
-        src/core/Camera.hpp)
+        src/core/Camera.hpp
+        src/core/OrbitController.cpp
+        src/core/OrbitController.hpp)
 
 target_link_libraries(Reactor PRIVATE Vulkan::Vulkan Vulkan::Headers glfw fmt::fmt spdlog::spdlog GPUOpen::VulkanMemoryAllocator glm::glm)
 target_link_libraries(Reactor PRIVATE imgui::imgui)
