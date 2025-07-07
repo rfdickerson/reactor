@@ -47,7 +47,9 @@ add_executable(Reactor src/core/main.cpp
         src/vulkan/UniformManager.cpp
         src/vulkan/UniformManager.hpp
         src/vulkan/ShaderModule.cpp
-        src/vulkan/ShaderModule.hpp)
+        src/vulkan/ShaderModule.hpp
+        src/core/EventManager.hpp
+        src/core/EventManager.cpp)
 
 target_link_libraries(Reactor PRIVATE Vulkan::Vulkan Vulkan::Headers glfw fmt::fmt spdlog::spdlog GPUOpen::VulkanMemoryAllocator glm::glm)
 target_link_libraries(Reactor PRIVATE imgui::imgui)

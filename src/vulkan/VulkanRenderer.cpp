@@ -27,9 +27,13 @@ VulkanRenderer::VulkanRenderer(const RendererConfig &config) : m_config(config) 
 }
 
 void VulkanRenderer::createCoreVulkanObjects() {
+    m_eventManager = std::make_unique<EventManager>();
     m_window =
-        std::make_unique<Window>(static_cast<int>(m_config.windowWidth),
-                                 static_cast<int>(m_config.windowHeight), m_config.windowTitle);
+        std::make_unique<Window>(
+            m_config.windowWidth,
+            m_config.windowHeight,
+            m_config.windowTitle,
+            *m_eventManager);
     m_context   = std::make_unique<VulkanContext>(m_window->getNativeWindow());
     m_allocator = std::make_unique<Allocator>(m_context->physicalDevice(), m_context->device(),
                                               m_context->instance());

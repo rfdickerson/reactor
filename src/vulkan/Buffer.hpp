@@ -8,9 +8,11 @@ namespace reactor {
 
 class Buffer {
 public:
-    Buffer(Allocator& allocator, vk::DeviceSize size, vk::BufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+    Buffer(Allocator& allocator, vk::DeviceSize size, vk::BufferUsageFlags usage, VmaMemoryUsage memoryUsage, std::string name="");
 
     ~Buffer();
+
+    [[nodiscard]] const std::string& getName() const { return m_name; }
 
     // Non-copyable
     Buffer(const Buffer&) = delete;
@@ -27,6 +29,8 @@ private:
     vk::Buffer m_buffer = VK_NULL_HANDLE;
     VmaAllocation m_allocation = VK_NULL_HANDLE;
     vk::DeviceSize m_size = 0;
+
+    std::string m_name;
 };
 
 } // reactor

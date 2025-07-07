@@ -6,14 +6,15 @@
 #define WINDOW_HPP
 
 #include <string>
-#include <functional>
 #include <vulkan/vulkan.hpp>
+#include "EventManager.hpp"
 
 namespace reactor {
 
+
     class Window {
     public:
-        Window(int width, int height, std::string title);
+        Window(int width, int height, std::string title, EventManager& eventManager);
         ~Window();
 
         // Prevent copying and moving to ensure a single owner for the window resource.
@@ -50,8 +51,13 @@ namespace reactor {
     private:
         // This is the static callback function that GLFW will call on resize events.
         static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
+        static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+        static void mouseButtonCallback(GLFWwindow* window, double xpos, double ypos);
 
         GLFWwindow* m_window = nullptr;
+        EventManager& m_eventManager;
+        int m_width;
+        int m_height;
         std::string m_title;
         bool m_framebufferResized = false;
     };

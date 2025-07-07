@@ -3,7 +3,8 @@
 
 namespace reactor {
     // The constructor initializes GLFW and creates the window.
-    Window::Window(int width, int height, std::string title) : m_title(std::move(title)) {
+    Window::Window(int width, int height, std::string title, EventManager& eventManager) :
+m_width(width), m_height(height), m_title(title), m_eventManager(eventManager) {
         // Initialize the GLFW library.
         if (!glfwInit()) {
             throw std::runtime_error("Failed to initialize GLFW!");
@@ -19,12 +20,11 @@ namespace reactor {
             throw std::runtime_error("Failed to create GLFW window!");
         }
 
-        // Store a pointer to this Window instance in the GLFW window's user data.
-        // This allows us to retrieve it in the static callback.
         glfwSetWindowUserPointer(m_window, this);
-
-        // Set the static callback function for framebuffer resize events.
         glfwSetFramebufferSizeCallback(m_window, framebufferResizeCallback);
+
+        glfwSetKeyCallback(m_window, keyCallback);
+        glfwSetCursorPosCallback(m_window, mouseButtonCallback);
     }
 
     // The destructor cleans up GLFW resources.
@@ -59,12 +59,38 @@ namespace reactor {
 
 
     // This is the static callback that GLFW invokes when the window is resized.
-    void Window::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
+    void Window::framebufferResizeCallback(GLFWwindow *window, int width, int height) {
         // Retrieve the pointer to our Window class instance.
-        auto* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
+        auto *windowInstance = static_cast<Window *>(glfwGetWindowUserPointer(window));
         if (windowInstance) {
             // Set the flag indicating that a resize has occurred.
             windowInstance->m_framebufferResized = true;
         }
     }
-}
+    void Window::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
+        auto* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
+        if (!windowInstance) return;
+
+        Event event{};
+        if (action == GLFW_PRESS) {
+            event.type = EventType::KeyPressed;
+            event.keyboard.key = key;
+            windowInstance->m_eventManager.post(event);
+        } else if (action == GLFW_RELEASE) {
+            event.type = EventType::KeyReleased;
+            event.keyboard.key = key;
+            windowInstance->m_eventManager.post(event);
+        }
+
+    }
+    void Window::mouseButtonCallback(GLFWwindow *window, double xpos, double ypos) {
+        auto* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
+        if (!windowInstance) return;
+        Event event{};
+        event.type = EventType::MouseMoved;
+        event.mouseMove.x = xpos;
+        event.mouseMove.y = ypos;
+        windowInstance->m_eventManager.post(event);
+
+    }
+    } // namespace reactor

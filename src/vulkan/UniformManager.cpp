@@ -17,7 +17,7 @@ std::vector<std::unique_ptr<Buffer>>
              m_allocator,
              size,
              vk::BufferUsageFlagBits::eUniformBuffer,
-             VmaMemoryUsage::VMA_MEMORY_USAGE_CPU_TO_GPU));
+             VMA_MEMORY_USAGE_CPU_TO_GPU, "Uniform buffer"));
      }
      return buffers;
  }

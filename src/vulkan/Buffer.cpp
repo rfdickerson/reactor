@@ -8,8 +8,8 @@
 
 namespace reactor {
 
-    Buffer::Buffer(Allocator &allocator, vk::DeviceSize size, vk::BufferUsageFlags usage, VmaMemoryUsage memoryUsage)
-        : m_allocator(allocator), m_size(size)
+    Buffer::Buffer(Allocator &allocator, vk::DeviceSize size, vk::BufferUsageFlags usage, VmaMemoryUsage memoryUsage, std::string name)
+        : m_allocator(allocator), m_size(size), m_name(name)
     {
         vk::BufferCreateInfo bufferInfo = {};
         bufferInfo.size = size;
@@ -36,7 +36,7 @@ namespace reactor {
         if (m_buffer && m_allocation) {
             vmaDestroyBuffer(m_allocator.get(), m_buffer, m_allocation);
 
-            spdlog::info("Buffer destroyed");
+            spdlog::info("Buffer {} destroyed", m_name.c_str());
 
             m_buffer = nullptr;
             m_allocation = nullptr;
