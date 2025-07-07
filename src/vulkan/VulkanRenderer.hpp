@@ -6,8 +6,9 @@
 #define VULKANRENDERER_HPP
 #include <memory>
 
-#include "../core/Window.hpp"
+#include "../core/Camera.hpp"
 #include "../core/EventManager.hpp"
+#include "../core/Window.hpp"
 #include "../imgui/Imgui.hpp"
 #include "Allocator.hpp"
 #include "DescriptorSet.hpp"
@@ -57,6 +58,7 @@ private:
     std::unique_ptr<DescriptorSet> m_compositeDescriptorSet;
     std::unique_ptr<Sampler> m_sampler;
     std::unique_ptr<UniformManager> m_uniformManager;
+    std::unique_ptr<Camera> m_camera;
 
     std::unique_ptr<Imgui> m_imgui;
 

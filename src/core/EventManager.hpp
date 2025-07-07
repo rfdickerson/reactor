@@ -32,7 +32,7 @@ class EventManager {
 public:
     void subscribe(EventType type, IEventListener* listener);
     void unsubscribe(EventType type, IEventListener* listener);
-    void post(const Event& event);
+    void post(const Event& event) const;
 
 private:
     std::unordered_map<EventType, std::vector<IEventListener*>> m_listeners;

@@ -24,6 +24,9 @@ VulkanRenderer::VulkanRenderer(const RendererConfig &config) : m_config(config) 
     createMSAAImage();
     createResolveImages();
     createSampler();
+
+    m_camera = std::make_unique<Camera>();
+    m_eventManager->subscribe(EventType::MouseMoved, m_camera.get());
 }
 
 void VulkanRenderer::createCoreVulkanObjects() {

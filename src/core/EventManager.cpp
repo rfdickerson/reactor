@@ -8,11 +8,11 @@ void EventManager::subscribe(EventType type, IEventListener *listener) {
 
 void EventManager::unsubscribe(EventType type, IEventListener *listener) {
     auto& listeners = m_listeners[type];
-    listeners.erase(std::remove(listeners.begin(), listeners.end(), listener), listeners.end());
+    std::erase(listeners, listener);
 }
 
-void EventManager::post(const Event &event) {
-    if (m_listeners.find(event.type) == m_listeners.end()) {
+void EventManager::post(const Event &event) const {
+    if (!m_listeners.contains(event.type)) {
         // no listeners, so nothing to do.
         return;
     }
