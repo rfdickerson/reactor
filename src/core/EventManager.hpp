@@ -6,6 +6,8 @@ namespace reactor {
 
 enum class EventType {
     MouseMoved,
+    MouseButtonPressed,
+    MouseButtonReleased,
     KeyPressed,
     KeyReleased,
 };
@@ -16,6 +18,10 @@ struct Event {
         struct {
             double x, y;
         } mouseMove;
+        struct {
+            int button;
+            double x, y;
+        } mouseButton;
         struct {
             int key;
         } keyboard;

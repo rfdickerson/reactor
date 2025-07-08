@@ -22,9 +22,19 @@ void OrbitController::onEvent(const Event &event) {
              float max_elev = glm::radians(85.0f);
              m_elevation = glm::clamp(m_elevation, -max_elev, max_elev);
              updateCamera();
+             m_lastX = event.mouseMove.x;
+             m_lastY = event.mouseMove.y;
          }
-         m_lastX = event.mouseMove.x;
-         m_lastY = event.mouseMove.y;
+         break;
+     case EventType::MouseButtonPressed:
+         if (event.mouseButton.button == 0) {
+             m_rotating = true;
+         }
+         break;
+     case EventType::MouseButtonReleased:
+         if (event.mouseButton.button == 0) {
+             m_rotating = false;
+         }
          break;
      case EventType::KeyPressed:
          break;

@@ -17,7 +17,7 @@ private:
     float m_azimuth = 0.0f;
     float m_elevation = 0.0f;
 
-    bool m_rotating = true;
+    bool m_rotating = false;
     double m_lastX = 0.0;
     double m_lastY = 0.0;
 

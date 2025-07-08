@@ -28,6 +28,8 @@ VulkanRenderer::VulkanRenderer(const RendererConfig &config) : m_config(config) 
     m_camera = std::make_unique<Camera>();
     m_orbitController = std::make_unique<OrbitController>(*m_camera);
     m_eventManager->subscribe(EventType::MouseMoved, m_orbitController.get());
+    m_eventManager->subscribe(EventType::MouseButtonPressed, m_orbitController.get());
+    m_eventManager->subscribe(EventType::MouseButtonReleased, m_orbitController.get());
 }
 
 void VulkanRenderer::createCoreVulkanObjects() {
