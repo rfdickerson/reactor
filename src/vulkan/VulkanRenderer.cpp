@@ -345,6 +345,8 @@ void VulkanRenderer::drawFrame() {
     // The UI is rendered on top of the composited scene.
     // The swapchain image is already in COLOR_ATTACHMENT_OPTIMAL, so no transition is needed.
     beginDynamicRendering(cmd, m_swapchain->getImageViews()[imageIndex], extent, false);
+
+    m_imgui->SetSceneImage(m_resolveViews[frameIdx], m_sampler->get());
     renderUI(cmd);
     endDynamicRendering(cmd);
 
