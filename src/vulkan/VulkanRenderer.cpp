@@ -2,15 +2,14 @@
 
 #include "../core/Uniforms.hpp"
 #include "../core/Window.hpp"
-#include "Buffer.hpp"
 #include "VulkanUtils.hpp"
 
-#include <cstring>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <utility>
 
 namespace reactor {
-VulkanRenderer::VulkanRenderer(const RendererConfig &config) : m_config(config) {
+VulkanRenderer::VulkanRenderer(RendererConfig config) : m_config(std::move(config)) {
     createCoreVulkanObjects();
     createSwapchainAndFrameManager();
 
@@ -60,22 +59,22 @@ void VulkanRenderer::createSwapchainAndFrameManager() {
 }
 
 void VulkanRenderer::createPipelineAndDescriptors() {
-    std::string vertShaderPath = m_config.vertShaderPath;
-    std::string fragShaderPath = m_config.fragShaderPath;
+    const std::string vertShaderPath = m_config.vertShaderPath;
+    const std::string fragShaderPath = m_config.fragShaderPath;
 
-    std::vector bindings = {
+    const std::vector bindings = {
         vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1,
                                        vk::ShaderStageFlagBits::eVertex),
     };
 
     m_descriptorSet = std::make_unique<DescriptorSet>(m_context->device(), 2, bindings);
 
-    std::vector setLayouts = {m_descriptorSet->getLayout()};
+    const std::vector setLayouts = {m_descriptorSet->getLayout()};
 
     m_pipeline = std::make_unique<Pipeline>(m_context->device(), vk::Format::eR16G16B16A16Sfloat,
                                             vertShaderPath, fragShaderPath, setLayouts, 4);
 
-    std::vector compositeBindings = {
+    const std::vector compositeBindings = {
         vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment),
         vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
     };
@@ -135,7 +134,7 @@ void VulkanRenderer::drawGeometry(vk::CommandBuffer cmd) {
     cmd.draw(3, 1, 0, 0);
 }
 
-void VulkanRenderer::renderUI(vk::CommandBuffer cmd) {
+void VulkanRenderer::renderUI(const vk::CommandBuffer cmd) const {
     m_imgui->createFrame();
     m_imgui->drawFrame(cmd);
 }
@@ -148,17 +147,6 @@ void VulkanRenderer::endCommandBuffer(vk::CommandBuffer cmd) { cmd.end(); }
 void VulkanRenderer::submitAndPresent(uint32_t imageIndex) {
     m_frameManager->endFrame(m_context->graphicsQueue(), m_context->presentQueue(),
                              m_swapchain->get(), imageIndex);
-}
-
-void VulkanRenderer::updateUniformBuffer(Buffer *uniformBuffer) {
-
-    SceneUBO ubo{};
-    ubo.view = m_camera->getView();
-    ubo.projection = m_camera->getProjection();
-
-    m_uniformManager->update<SceneUBO>(m_frameManager->getFrameIndex(), ubo);
-
-
 }
 
 void VulkanRenderer::beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView imageView,
@@ -201,9 +189,10 @@ void VulkanRenderer::drawFrame() {
     const vk::ImageView msaaView     = m_msaaColorViews[frameIdx];
     const vk::Image     resolveImage = m_resolveImages[frameIdx]->get();
 
-    SceneUBO sceneData;
+    SceneUBO sceneData{};
+    const auto aspect = static_cast<float>(width) / static_cast<float>(height);
     sceneData.view = glm::mat4(1.0);
-    sceneData.projection = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 100.0f);
+    sceneData.projection = glm::perspective(glm::radians(45.0F), aspect, 0.1F, 100.0F);
     m_uniformManager->update<SceneUBO>(frameIdx, sceneData);
 
     CompositeUBO compositeData;
@@ -347,7 +336,7 @@ void VulkanRenderer::drawFrame() {
     // The swapchain image is already in COLOR_ATTACHMENT_OPTIMAL, so no transition is needed.
     beginDynamicRendering(cmd, m_swapchain->getImageViews()[imageIndex], extent, false);
 
-    m_imgui->SetSceneDescriptorSet(m_sceneViewImageDescriptorSets[frameIdx]);
+    m_imgui->setSceneDescriptorSet(m_sceneViewImageDescriptorSets[frameIdx]);
     renderUI(cmd);
     endDynamicRendering(cmd);
 

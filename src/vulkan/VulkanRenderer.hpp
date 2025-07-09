@@ -38,7 +38,7 @@ namespace reactor {
 
 class VulkanRenderer {
 public:
-    explicit VulkanRenderer(const RendererConfig& config);
+    explicit VulkanRenderer(RendererConfig  config);
     ~VulkanRenderer();
 
     void run();
@@ -88,9 +88,9 @@ private:
     void updateUniformBuffer(Buffer* uniformBuffer);
     void bindDescriptorSets(vk::CommandBuffer cmd);
     void drawGeometry(vk::CommandBuffer cmd);
-    void renderUI(vk::CommandBuffer cmd);
-    void endDynamicRendering(vk::CommandBuffer cmd);
-    void endCommandBuffer(vk::CommandBuffer cmd);
+    void renderUI(vk::CommandBuffer cmd) const;
+    static void endDynamicRendering(vk::CommandBuffer cmd);
+    static void endCommandBuffer(vk::CommandBuffer cmd);
     void submitAndPresent(uint32_t imageIndex);
 
 

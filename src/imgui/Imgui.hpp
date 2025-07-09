@@ -24,7 +24,7 @@ public:
     [[nodiscard]] float getSaturation() const { return m_saturation; }
 
     static vk::DescriptorSet createDescriptorSet(vk::ImageView imageView, vk::Sampler sampler);
-    void SetSceneDescriptorSet(const vk::DescriptorSet descriptorSet) { m_sceneImguiId = descriptorSet; };
+    void setSceneDescriptorSet(const vk::DescriptorSet descriptorSet) { m_sceneImguiId = descriptorSet; };
 
 private:
 
