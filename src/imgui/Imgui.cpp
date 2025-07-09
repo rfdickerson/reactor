@@ -125,12 +125,11 @@ void Imgui::ShowDockspace() {
 
 void Imgui::ShowSceneView() {
     ImGui::Begin("Scene View");
-    ImGui::Text("Scene View");
-    ImVec2 size = ImGui::GetContentRegionAvail();
+    const ImVec2 size = ImGui::GetContentRegionAvail();
 
     if (m_sceneImguiId) {
-        ImTextureID id;
-        id = reinterpret_cast<ImTextureID>(static_cast<VkDescriptorSet>(m_sceneImguiId));
+        const ImTextureID id =
+            reinterpret_cast<ImTextureID>(static_cast<VkDescriptorSet>(m_sceneImguiId));
 
         ImGui::Image(
             id,
@@ -178,13 +177,13 @@ void Imgui::SetupInitialDockLayout(ImGuiID dockspace_id) {
 }
 
 
-void Imgui::SetSceneImage(vk::ImageView imageView, vk::Sampler sampler) {
+vk::DescriptorSet Imgui::createDescriptorSet(vk::ImageView imageView, vk::Sampler sampler) {
 
-    if (m_sceneImguiId) {
-        ImGui_ImplVulkan_RemoveTexture(m_sceneImguiId);
-    }
+    // if (m_sceneImguiId) {
+    //     ImGui_ImplVulkan_RemoveTexture(m_sceneImguiId);
+    // }
 
-    m_sceneImguiId = ImGui_ImplVulkan_AddTexture(sampler, imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    return ImGui_ImplVulkan_AddTexture(sampler, imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 }
 

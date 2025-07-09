@@ -19,11 +19,12 @@ public:
     void createFrame();
     void drawFrame(vk::CommandBuffer commandBuffer);
 
-    float getExposure() const { return m_exposure; }
-    float getContrast() const { return m_contrast; }
-    float getSaturation() const { return m_saturation; }
+    [[nodiscard]] float getExposure() const { return m_exposure; }
+    [[nodiscard]] float getContrast() const { return m_contrast; }
+    [[nodiscard]] float getSaturation() const { return m_saturation; }
 
-    void SetSceneImage(vk::ImageView imageView, vk::Sampler sampler);
+    static vk::DescriptorSet createDescriptorSet(vk::ImageView imageView, vk::Sampler sampler);
+    void SetSceneDescriptorSet(const vk::DescriptorSet descriptorSet) { m_sceneImguiId = descriptorSet; };
 
 private:
 

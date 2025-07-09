@@ -71,6 +71,7 @@ private:
 
     std::vector<std::unique_ptr<Image>> m_resolveImages;
     std::vector<vk::ImageView> m_resolveViews;
+    std::vector<vk::DescriptorSet> m_sceneViewImageDescriptorSets;
 
     void createCoreVulkanObjects();
     void createSwapchainAndFrameManager();
@@ -79,6 +80,7 @@ private:
     void createMSAAImage();
     void createResolveImages();
     void createSampler();
+    void createDescriptorSets();
 
     void handleSwapchainResizing();
     void beginCommandBuffer(vk::CommandBuffer cmd);

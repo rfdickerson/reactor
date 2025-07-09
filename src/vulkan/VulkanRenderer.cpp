@@ -24,6 +24,7 @@ VulkanRenderer::VulkanRenderer(const RendererConfig &config) : m_config(config) 
     createMSAAImage();
     createResolveImages();
     createSampler();
+    createDescriptorSets();
 
     m_camera = std::make_unique<Camera>();
     m_orbitController = std::make_unique<OrbitController>(*m_camera);
@@ -346,7 +347,7 @@ void VulkanRenderer::drawFrame() {
     // The swapchain image is already in COLOR_ATTACHMENT_OPTIMAL, so no transition is needed.
     beginDynamicRendering(cmd, m_swapchain->getImageViews()[imageIndex], extent, false);
 
-    m_imgui->SetSceneImage(m_resolveViews[frameIdx], m_sampler->get());
+    m_imgui->SetSceneDescriptorSet(m_sceneViewImageDescriptorSets[frameIdx]);
     renderUI(cmd);
     endDynamicRendering(cmd);
 
@@ -464,22 +465,30 @@ void VulkanRenderer::createResolveImages() {
 
 void VulkanRenderer::createSampler() {
     vk::SamplerCreateInfo samplerInfo{};
-    samplerInfo.magFilter = vk::Filter::eLinear;
-    samplerInfo.minFilter = vk::Filter::eLinear;
-    samplerInfo.mipmapMode = vk::SamplerMipmapMode::eLinear;
-    samplerInfo.addressModeU = vk::SamplerAddressMode::eClampToEdge;
-    samplerInfo.addressModeV = vk::SamplerAddressMode::eClampToEdge;
-    samplerInfo.addressModeW = vk::SamplerAddressMode::eClampToEdge;
-    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.magFilter        = vk::Filter::eLinear;
+    samplerInfo.minFilter        = vk::Filter::eLinear;
+    samplerInfo.mipmapMode       = vk::SamplerMipmapMode::eLinear;
+    samplerInfo.addressModeU     = vk::SamplerAddressMode::eClampToEdge;
+    samplerInfo.addressModeV     = vk::SamplerAddressMode::eClampToEdge;
+    samplerInfo.addressModeW     = vk::SamplerAddressMode::eClampToEdge;
+    samplerInfo.mipLodBias       = 0.0f;
     samplerInfo.anisotropyEnable = VK_FALSE;
-    samplerInfo.maxAnisotropy = 1.0f;
-    samplerInfo.compareEnable = VK_FALSE;
-    samplerInfo.compareOp = vk::CompareOp::eAlways;
-    samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = 0.0f;
-    samplerInfo.borderColor = vk::BorderColor::eFloatOpaqueWhite;
+    samplerInfo.maxAnisotropy    = 1.0f;
+    samplerInfo.compareEnable    = VK_FALSE;
+    samplerInfo.compareOp        = vk::CompareOp::eAlways;
+    samplerInfo.minLod           = 0.0f;
+    samplerInfo.maxLod           = 0.0f;
+    samplerInfo.borderColor      = vk::BorderColor::eFloatOpaqueWhite;
 
     m_sampler = std::make_unique<Sampler>(m_context->device(), samplerInfo);
+}
+void VulkanRenderer::createDescriptorSets() {
+
+    const auto framesInFlight = m_frameManager->getFramesInFlightCount();
+    m_sceneViewImageDescriptorSets.resize(framesInFlight);
+    for (int i = 0; i < framesInFlight; ++i) {
+        m_sceneViewImageDescriptorSets[i] = m_imgui->createDescriptorSet(m_resolveViews[i], m_sampler->get());
+    }
 }
 
 } // namespace reactor
