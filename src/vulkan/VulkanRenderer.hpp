@@ -1,14 +1,8 @@
-//
-// Created by Robert F. Dickerson on 6/9/25.
-//
+#pragma once
 
-#ifndef VULKANRENDERER_HPP
-#define VULKANRENDERER_HPP
 #include <memory>
 
 #include "../core/Camera.hpp"
-#include "../core/EventManager.hpp"
-#include "../core/OrbitController.hpp"
 #include "../core/Window.hpp"
 #include "../imgui/Imgui.hpp"
 #include "Allocator.hpp"
@@ -34,22 +28,19 @@ namespace reactor {
         std::string compositeFragShaderPath;
     };
 
-
-
 class VulkanRenderer {
 public:
-    explicit VulkanRenderer(RendererConfig  config);
+    VulkanRenderer(const RendererConfig& config, Window& window, Camera& camera);
     ~VulkanRenderer();
-
-    void run();
 
     void drawFrame();
 
 private:
-    RendererConfig m_config{};
-    std::unique_ptr<EventManager> m_eventManager;
+    const RendererConfig& m_config;
+    Window& m_window;
+    Camera& m_camera;
+
     std::unique_ptr<VulkanContext> m_context;
-    std::unique_ptr<Window> m_window;
     std::unique_ptr<Swapchain> m_swapchain;
     std::unique_ptr<Allocator> m_allocator;
     std::unique_ptr<FrameManager> m_frameManager;
@@ -59,9 +50,6 @@ private:
     std::unique_ptr<DescriptorSet> m_compositeDescriptorSet;
     std::unique_ptr<Sampler> m_sampler;
     std::unique_ptr<UniformManager> m_uniformManager;
-    std::unique_ptr<Camera> m_camera;
-    std::unique_ptr<OrbitController> m_orbitController;
-
     std::unique_ptr<Imgui> m_imgui;
 
     ImageStateTracker m_imageStateTracker;
@@ -85,7 +73,6 @@ private:
     void handleSwapchainResizing();
     void beginCommandBuffer(vk::CommandBuffer cmd);
     void beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView imageView, vk::Extent2D extent, bool clear);
-    void updateUniformBuffer(Buffer* uniformBuffer);
     void bindDescriptorSets(vk::CommandBuffer cmd);
     void drawGeometry(vk::CommandBuffer cmd);
     void renderUI(vk::CommandBuffer cmd) const;
@@ -98,4 +85,3 @@ private:
 
 }
 
-#endif //VULKANRENDERER_HPP

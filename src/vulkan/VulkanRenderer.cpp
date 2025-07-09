@@ -6,10 +6,10 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <utility>
 
 namespace reactor {
-VulkanRenderer::VulkanRenderer(RendererConfig config) : m_config(std::move(config)) {
+VulkanRenderer::VulkanRenderer(const RendererConfig& config, Window& window, Camera& camera)
+: m_config(config), m_window(window), m_camera(camera) {
     createCoreVulkanObjects();
     createSwapchainAndFrameManager();
 
@@ -25,29 +25,17 @@ VulkanRenderer::VulkanRenderer(RendererConfig config) : m_config(std::move(confi
     createSampler();
     createDescriptorSets();
 
-    m_camera = std::make_unique<Camera>();
-    m_orbitController = std::make_unique<OrbitController>(*m_camera);
-    m_eventManager->subscribe(EventType::MouseMoved, m_orbitController.get());
-    m_eventManager->subscribe(EventType::MouseButtonPressed, m_orbitController.get());
-    m_eventManager->subscribe(EventType::MouseButtonReleased, m_orbitController.get());
 }
 
 void VulkanRenderer::createCoreVulkanObjects() {
-    m_eventManager = std::make_unique<EventManager>();
-    m_window =
-        std::make_unique<Window>(
-            m_config.windowWidth,
-            m_config.windowHeight,
-            m_config.windowTitle,
-            *m_eventManager);
-    m_context   = std::make_unique<VulkanContext>(m_window->getNativeWindow());
+    m_context   = std::make_unique<VulkanContext>(m_window.getNativeWindow());
     m_allocator = std::make_unique<Allocator>(m_context->physicalDevice(), m_context->device(),
                                               m_context->instance());
 }
 
 void VulkanRenderer::createSwapchainAndFrameManager() {
     m_swapchain = std::make_unique<Swapchain>(m_context->device(), m_context->physicalDevice(),
-                                              m_context->surface(), *m_window);
+                                              m_context->surface(), m_window);
 
     uint32_t swapchainImageCount = m_swapchain->getImageViews().size();
     m_frameManager = std::make_unique<FrameManager>(m_context->device(), *m_allocator, 0, 2,
@@ -89,34 +77,28 @@ void VulkanRenderer::createPipelineAndDescriptors() {
 }
 
 void VulkanRenderer::handleSwapchainResizing() {
-    if (m_window->wasResized()) {
-        vk::Extent2D size = m_window->getFramebufferSize();
+    if (m_window.wasResized()) {
+        vk::Extent2D size = m_window.getFramebufferSize();
         while (size.width == 0 || size.height == 0) {
             Window::waitEvents();
-            size = m_window->getFramebufferSize();
+            size = m_window.getFramebufferSize();
         }
         m_context->device().waitIdle();
         m_swapchain->recreate();
-        m_window->resetResizedFlag();
+        m_window.resetResizedFlag();
     }
 }
 
-void VulkanRenderer::setupUI() { m_imgui = std::make_unique<Imgui>(*m_context, *m_window); }
+void VulkanRenderer::setupUI() { m_imgui = std::make_unique<Imgui>(*m_context, m_window); }
 
 VulkanRenderer::~VulkanRenderer() {
+
+    m_context->device().waitIdle();
+
     for (auto i = 0; i < m_frameManager->getFramesInFlightCount(); ++i) {
         m_context->device().destroyImageView(m_msaaColorViews[i]);
         m_context->device().destroyImageView(m_resolveViews[i]);
     }
-}
-
-void VulkanRenderer::run() {
-    while (!m_window->shouldClose()) {
-        Window::pollEvents();
-        drawFrame();
-    }
-
-    m_context->device().waitIdle();
 }
 
 void VulkanRenderer::beginCommandBuffer(vk::CommandBuffer cmd) {
@@ -221,8 +203,8 @@ void VulkanRenderer::drawFrame() {
     utils::setupViewportAndScissor(cmd, extent);
 
     SceneUBO ubo{};
-    ubo.view = m_camera->getView();
-    ubo.projection = m_camera->getProjection();
+    ubo.view = m_camera.getView();
+    ubo.projection = m_camera.getProjection();
 
     m_uniformManager->update<SceneUBO>(frameIdx, ubo);
 
