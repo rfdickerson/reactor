@@ -34,11 +34,11 @@ jobs:
         run: cmake -S . -B build \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-          -DCMAKE_TOOLCHAIN_FILE=vcpkg/scripts/buildsystems/vcpkg.cmake
+          -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake
 
       - name: Run clang-tidy
         run: |
-          FILES=$(find . -name '*.cpp')
+          FILES=$(find src -name '*.cpp')
           clang-tidy -p build $FILES || true
 
       - name: Build
