@@ -15,6 +15,17 @@ jobs:
         with:
           submodules: true
 
+      - name: Cache vcpkg dependencies
+        uses: actions/cache@v4
+        with:
+          # The path to cache is the entire vcpkg directory
+          path: ${{ github.workspace }}/vcpkg
+          # The key is specific to the OS and the contents of your vcpkg manifest
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          # A fallback key to restore the latest cache for the current OS
+          restore-keys: |
+            vcpkg-${{ runner.os }}-
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
