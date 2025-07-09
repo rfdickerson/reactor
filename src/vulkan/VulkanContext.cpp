@@ -1,7 +1,3 @@
-//
-// Created by Robert F. Dickerson on 6/8/25.
-//
-
 #include "VulkanContext.hpp"
 
 #include <set>
@@ -25,7 +21,7 @@ VulkanContext::~VulkanContext() {
     m_instance.destroy();
 }
 
-    void printVulkanVersion() {
+void printVulkanVersion() {
         uint32_t vulkanApiVersion;
         if (vk::enumerateInstanceVersion(&vulkanApiVersion) == vk::Result::eSuccess) {
             uint32_t major = VK_VERSION_MAJOR(vulkanApiVersion);
@@ -74,7 +70,7 @@ void VulkanContext::createInstance() {
 
     } catch (const vk::SystemError& err) {
         std::cerr << "Failed to create Vulkan instance: " << err.what() << std::endl;
-        throw err;
+        throw;
     }
 }
 

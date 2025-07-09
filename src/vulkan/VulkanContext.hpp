@@ -1,13 +1,7 @@
-//
-// Created by Robert F. Dickerson on 6/8/25.
-//
-
-#ifndef VULKAN_CONTEXT_HPP
-#define VULKAN_CONTEXT_HPP
+#pragma once
 
 #include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
-#include <memory>
 #include <optional>
 
 namespace reactor {
@@ -65,4 +59,3 @@ private:
 
 } // reactor
 
-#endif //VULKAN_CONTEXT_HPP
