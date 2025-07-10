@@ -4,6 +4,20 @@
 
 #include <spdlog/spdlog.h>
 
+namespace {
+void printVulkanVersion() {
+    uint32_t vulkanApiVersion = 0;
+    if (vk::enumerateInstanceVersion(&vulkanApiVersion) == vk::Result::eSuccess) {
+        uint32_t major = VK_VERSION_MAJOR(vulkanApiVersion);
+        uint32_t minor = VK_VERSION_MINOR(vulkanApiVersion);
+        uint32_t patch = VK_VERSION_PATCH(vulkanApiVersion);
+        spdlog::info("Vulkan API version: {}.{}.{}", major, minor, patch);
+    } else {
+        spdlog::error("Failed to enumerate Vulkan API version");
+    }
+}
+}
+
 namespace reactor {
 
 VulkanContext::VulkanContext(GLFWwindow* window) {
@@ -20,19 +34,6 @@ VulkanContext::~VulkanContext() {
     m_instance.destroySurfaceKHR(m_surface);
     m_instance.destroy();
 }
-
-void printVulkanVersion() {
-        uint32_t vulkanApiVersion;
-        if (vk::enumerateInstanceVersion(&vulkanApiVersion) == vk::Result::eSuccess) {
-            uint32_t major = VK_VERSION_MAJOR(vulkanApiVersion);
-            uint32_t minor = VK_VERSION_MINOR(vulkanApiVersion);
-            uint32_t patch = VK_VERSION_PATCH(vulkanApiVersion);
-            spdlog::info("Vulkan API version: {}.{}.{}", major, minor, patch);
-        } else {
-            spdlog::error("Failed to enumerate Vulkan API version");
-        }
-    }
-
 
 void VulkanContext::createInstance() {
     constexpr vk::ApplicationInfo appInfo {
@@ -89,7 +90,10 @@ void VulkanContext::createSurface(GLFWwindow *window) {
     }
 
     std::vector<vk::PhysicalDevice> devices(deviceCount);
-    m_instance.enumeratePhysicalDevices(&deviceCount, devices.data());
+    auto result = m_instance.enumeratePhysicalDevices(&deviceCount, devices.data());
+    if (result != vk::Result::eSuccess) {
+        throw std::runtime_error("Failed to enumerate GPUs with Vulkan support!");
+    }
 
     for (const auto& device : devices) {
         if (isDeviceSuitable(device)) {
@@ -105,17 +109,17 @@ void VulkanContext::createSurface(GLFWwindow *window) {
 }
 
     bool VulkanContext::isDeviceSuitable(vk::PhysicalDevice device) {
-    QueueFamilyIndices indices = findQueueFamilies(device);
+    const QueueFamilyIndices indices = findQueueFamilies(device);
 
     // Basic check for device suitability: does it have a graphics and present queue?
     // You'll likely want to add more checks here, e.g., device extensions, swap chain support.
     return indices.isComplete();
 }
 
-QueueFamilyIndices VulkanContext::findQueueFamilies(vk::PhysicalDevice device) {
+QueueFamilyIndices VulkanContext::findQueueFamilies(vk::PhysicalDevice device) const {
     QueueFamilyIndices indices;
 
-    std::vector<vk::QueueFamilyProperties> queueFamilies = device.getQueueFamilyProperties();
+    const std::vector<vk::QueueFamilyProperties> queueFamilies = device.getQueueFamilyProperties();
 
     int i = 0;
     for (const auto& queueFamily : queueFamilies) {
@@ -123,8 +127,12 @@ QueueFamilyIndices VulkanContext::findQueueFamilies(vk::PhysicalDevice device) {
             indices.graphicsFamily = i;
         }
 
-        vk::Bool32 presentSupport = false;
-        device.getSurfaceSupportKHR(i, m_surface, &presentSupport);
+        vk::Bool32 presentSupport = vk::False;
+        if (const auto result = device.getSurfaceSupportKHR(i, m_surface, &presentSupport);
+            result != vk::Result::eSuccess) {
+            throw std::runtime_error("Failed to get surface support!");
+        }
+
         if (presentSupport) {
             indices.presentFamily = i;
         }
@@ -189,7 +197,7 @@ void VulkanContext::createLogicalDevice() {
         spdlog::info("Logical device created");
     } catch (const vk::SystemError& err) {
         std::cerr << "Failed to create logical device: " << err.what() << std::endl;
-        throw err;
+        throw;
     }
 }
 
