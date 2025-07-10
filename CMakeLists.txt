@@ -44,6 +44,7 @@ add_executable(Reactor src/core/main.cpp
         src/vulkan/ImageStateTracker.cpp
         src/vulkan/ImageStateTracker.h
         src/core/Uniforms.hpp
+        src/core/Vertex.hpp
         src/vulkan/UniformManager.cpp
         src/vulkan/UniformManager.hpp
         src/vulkan/ShaderModule.cpp
