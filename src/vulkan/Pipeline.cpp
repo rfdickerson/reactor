@@ -20,7 +20,10 @@ std::vector<char> Pipeline::readFile(const std::string &filename) const {
 
 Pipeline::Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
                    const std::string &vertShaderPath, const std::string &fragShaderPath,
-                   const std::vector<vk::DescriptorSetLayout> &setLayouts, uint32_t samples)
+                   const std::vector<vk::DescriptorSetLayout> &setLayouts, uint32_t samples,
+                   vk::Format depthFormat,
+                   const std::vector<vk::VertexInputBindingDescription> &bindings,
+                   const std::vector<vk::VertexInputAttributeDescription> &attributes)
     : m_device(device) {
     // 1. Read shader code from files
     auto vertShaderCode = readFile(vertShaderPath);
@@ -41,8 +44,12 @@ Pipeline::Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
 
     vk::PipelineShaderStageCreateInfo shaderStages[] = {vertStageInfo, fragStageInfo};
 
-    // 3. Vertex input (empty, for a basic triangle with no vertex buffer)
+    // 3. Vertex input
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo{};
+    vertexInputInfo.vertexBindingDescriptionCount   = static_cast<uint32_t>(bindings.size());
+    vertexInputInfo.pVertexBindingDescriptions      = bindings.data();
+    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributes.size());
+    vertexInputInfo.pVertexAttributeDescriptions    = attributes.data();
 
     // 4. Input assembly
     vk::PipelineInputAssemblyStateCreateInfo inputAssembly{};
@@ -100,7 +107,7 @@ Pipeline::Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
     renderingInfo.colorAttachmentCount    = 1;
     renderingInfo.pColorAttachmentFormats = &colorAttachmentFormat;
     renderingInfo.viewMask                = 0;
-    renderingInfo.depthAttachmentFormat   = vk::Format::eUndefined;
+    renderingInfo.depthAttachmentFormat   = depthFormat;
     renderingInfo.stencilAttachmentFormat = vk::Format::eUndefined;
 
     // 11. Create graphics pipeline

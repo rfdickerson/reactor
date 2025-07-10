@@ -2,12 +2,63 @@
 
 #include "../core/Uniforms.hpp"
 #include "../core/Window.hpp"
+#include "../core/Vertex.hpp"
+#include "Buffer.hpp"
 #include "VulkanUtils.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <cstring>
+#include <array>
 
 namespace reactor {
+
+namespace {
+    const std::array<Vertex, 36> g_cubeVertices{ {
+        // Front face - red
+        {{-0.5f,-0.5f, 0.5f},{1.f,0.f,0.f}},
+        {{ 0.5f,-0.5f, 0.5f},{1.f,0.f,0.f}},
+        {{ 0.5f, 0.5f, 0.5f},{1.f,0.f,0.f}},
+        {{-0.5f,-0.5f, 0.5f},{1.f,0.f,0.f}},
+        {{ 0.5f, 0.5f, 0.5f},{1.f,0.f,0.f}},
+        {{-0.5f, 0.5f, 0.5f},{1.f,0.f,0.f}},
+        // Back face - green
+        {{-0.5f,-0.5f,-0.5f},{0.f,1.f,0.f}},
+        {{ 0.5f, 0.5f,-0.5f},{0.f,1.f,0.f}},
+        {{ 0.5f,-0.5f,-0.5f},{0.f,1.f,0.f}},
+        {{-0.5f,-0.5f,-0.5f},{0.f,1.f,0.f}},
+        {{-0.5f, 0.5f,-0.5f},{0.f,1.f,0.f}},
+        {{ 0.5f, 0.5f,-0.5f},{0.f,1.f,0.f}},
+        // Left face - blue
+        {{-0.5f,-0.5f,-0.5f},{0.f,0.f,1.f}},
+        {{-0.5f,-0.5f, 0.5f},{0.f,0.f,1.f}},
+        {{-0.5f, 0.5f, 0.5f},{0.f,0.f,1.f}},
+        {{-0.5f,-0.5f,-0.5f},{0.f,0.f,1.f}},
+        {{-0.5f, 0.5f, 0.5f},{0.f,0.f,1.f}},
+        {{-0.5f, 0.5f,-0.5f},{0.f,0.f,1.f}},
+        // Right face - yellow
+        {{ 0.5f,-0.5f,-0.5f},{1.f,1.f,0.f}},
+        {{ 0.5f, 0.5f, 0.5f},{1.f,1.f,0.f}},
+        {{ 0.5f,-0.5f, 0.5f},{1.f,1.f,0.f}},
+        {{ 0.5f,-0.5f,-0.5f},{1.f,1.f,0.f}},
+        {{ 0.5f, 0.5f,-0.5f},{1.f,1.f,0.f}},
+        {{ 0.5f, 0.5f, 0.5f},{1.f,1.f,0.f}},
+        // Top face - magenta
+        {{-0.5f, 0.5f,-0.5f},{1.f,0.f,1.f}},
+        {{-0.5f, 0.5f, 0.5f},{1.f,0.f,1.f}},
+        {{ 0.5f, 0.5f, 0.5f},{1.f,0.f,1.f}},
+        {{-0.5f, 0.5f,-0.5f},{1.f,0.f,1.f}},
+        {{ 0.5f, 0.5f, 0.5f},{1.f,0.f,1.f}},
+        {{ 0.5f, 0.5f,-0.5f},{1.f,0.f,1.f}},
+        // Bottom face - cyan
+        {{-0.5f,-0.5f,-0.5f},{0.f,1.f,1.f}},
+        {{ 0.5f,-0.5f, 0.5f},{0.f,1.f,1.f}},
+        {{-0.5f,-0.5f, 0.5f},{0.f,1.f,1.f}},
+        {{-0.5f,-0.5f,-0.5f},{0.f,1.f,1.f}},
+        {{ 0.5f,-0.5f,-0.5f},{0.f,1.f,1.f}},
+        {{ 0.5f,-0.5f, 0.5f},{0.f,1.f,1.f}},
+    } };
+} // namespace
 VulkanRenderer::VulkanRenderer(const RendererConfig& config, Window& window, Camera& camera)
 : m_config(config), m_window(window), m_camera(camera) {
     createCoreVulkanObjects();
@@ -21,9 +72,11 @@ VulkanRenderer::VulkanRenderer(const RendererConfig& config, Window& window, Cam
     createPipelineAndDescriptors();
     setupUI();
     createMSAAImage();
+    createDepthImages();
     createResolveImages();
     createSampler();
     createDescriptorSets();
+    createVertexBuffer();
 
 }
 
@@ -59,8 +112,14 @@ void VulkanRenderer::createPipelineAndDescriptors() {
 
     const std::vector setLayouts = {m_descriptorSet->getLayout()};
 
+    auto binding = Vertex::bindingDescription();
+    auto attrArr = Vertex::attributeDescriptions();
+    std::vector<vk::VertexInputBindingDescription> vb{binding};
+    std::vector<vk::VertexInputAttributeDescription> va(attrArr.begin(), attrArr.end());
+
     m_pipeline = std::make_unique<Pipeline>(m_context->device(), vk::Format::eR16G16B16A16Sfloat,
-                                            vertShaderPath, fragShaderPath, setLayouts, 4);
+                                            vertShaderPath, fragShaderPath, setLayouts, 4,
+                                            vk::Format::eD32Sfloat, vb, va);
 
     const std::vector compositeBindings = {
         vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment),
@@ -98,6 +157,7 @@ VulkanRenderer::~VulkanRenderer() {
     for (auto i = 0; i < m_frameManager->getFramesInFlightCount(); ++i) {
         m_context->device().destroyImageView(m_msaaColorViews[i]);
         m_context->device().destroyImageView(m_resolveViews[i]);
+        m_context->device().destroyImageView(m_depthViews[i]);
     }
 }
 
@@ -113,7 +173,10 @@ void VulkanRenderer::bindDescriptorSets(vk::CommandBuffer cmd) {
 
 void VulkanRenderer::drawGeometry(vk::CommandBuffer cmd) {
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline->get());
-    cmd.draw(3, 1, 0, 0);
+    vk::Buffer     buffers[] = {m_vertexBuffer->buffer()};
+    vk::DeviceSize offsets[] = {0};
+    cmd.bindVertexBuffers(0, 1, buffers, offsets);
+    cmd.draw(static_cast<uint32_t>(g_cubeVertices.size()), 1, 0, 0);
 }
 
 void VulkanRenderer::renderUI(const vk::CommandBuffer cmd) const {
@@ -132,7 +195,8 @@ void VulkanRenderer::submitAndPresent(uint32_t imageIndex) {
 }
 
 void VulkanRenderer::beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView imageView,
-                                           vk::Extent2D extent, bool clear=true) {
+                                           vk::Extent2D extent, bool clear,
+                                           vk::ImageView depthView) {
     constexpr vk::ClearValue clearColor = vk::ClearColorValue(std::array{0.0f, 0.0f, 0.0f, 1.0f});
     vk::RenderingAttachmentInfo colorAttachment{};
     colorAttachment.imageView   = imageView;
@@ -141,12 +205,24 @@ void VulkanRenderer::beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView 
     colorAttachment.storeOp     = vk::AttachmentStoreOp::eStore;
     colorAttachment.clearValue  = clearColor;
 
+    vk::RenderingAttachmentInfo depthAttachment{};
+    if (depthView) {
+        depthAttachment.imageView   = depthView;
+        depthAttachment.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+        depthAttachment.loadOp      = clear ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad;
+        depthAttachment.storeOp     = vk::AttachmentStoreOp::eStore;
+        depthAttachment.clearValue.depthStencil = vk::ClearDepthStencilValue{1.0f, 0};
+    }
+
     vk::RenderingInfo renderingInfo{};
     renderingInfo.renderArea.offset    = vk::Offset2D{0, 0};
     renderingInfo.renderArea.extent    = extent;
     renderingInfo.layerCount           = 1;
     renderingInfo.colorAttachmentCount = 1;
     renderingInfo.pColorAttachments    = &colorAttachment;
+    if (depthView) {
+        renderingInfo.pDepthAttachment = &depthAttachment;
+    }
 
     cmd.beginRendering(renderingInfo);
 }
@@ -199,7 +275,17 @@ void VulkanRenderer::drawFrame() {
         vk::AccessFlagBits::eColorAttachmentWrite       // Destination Access
     );
 
-    beginDynamicRendering(cmd, msaaView, extent);
+    m_imageStateTracker.transition(
+        cmd,
+        m_depthImages[frameIdx]->get(),
+        vk::ImageLayout::eDepthStencilAttachmentOptimal,
+        vk::PipelineStageFlagBits::eTopOfPipe,
+        vk::PipelineStageFlagBits::eEarlyFragmentTests,
+        {},
+        vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+        vk::ImageAspectFlagBits::eDepth);
+
+    beginDynamicRendering(cmd, msaaView, extent, true, m_depthViews[frameIdx]);
     utils::setupViewportAndScissor(cmd, extent);
 
     SceneUBO ubo{};
@@ -460,6 +546,59 @@ void VulkanRenderer::createDescriptorSets() {
     for (int i = 0; i < framesInFlight; ++i) {
         m_sceneViewImageDescriptorSets[i] = m_imgui->createDescriptorSet(m_resolveViews[i], m_sampler->get());
     }
+}
+
+void VulkanRenderer::createDepthImages() {
+    vk::Format   format = vk::Format::eD32Sfloat;
+    vk::Extent2D extent = m_swapchain->getExtent();
+
+    size_t frames = m_frameManager->getFramesInFlightCount();
+    m_depthImages.resize(frames);
+    m_depthViews.resize(frames);
+
+    for (size_t i = 0; i < frames; ++i) {
+        vk::ImageCreateInfo imageInfo{};
+        imageInfo.imageType     = vk::ImageType::e2D;
+        imageInfo.extent.width  = extent.width;
+        imageInfo.extent.height = extent.height;
+        imageInfo.extent.depth  = 1;
+        imageInfo.mipLevels     = 1;
+        imageInfo.arrayLayers   = 1;
+        imageInfo.format        = format;
+        imageInfo.tiling        = vk::ImageTiling::eOptimal;
+        imageInfo.initialLayout = vk::ImageLayout::eUndefined;
+        imageInfo.usage         = vk::ImageUsageFlagBits::eDepthStencilAttachment;
+        imageInfo.samples       = vk::SampleCountFlagBits::e4;
+        imageInfo.sharingMode   = vk::SharingMode::eExclusive;
+
+        m_depthImages[i] = std::make_unique<Image>(*m_allocator, imageInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+        m_imageStateTracker.recordState(m_depthImages[i]->get(), vk::ImageLayout::eUndefined);
+
+        vk::ImageViewCreateInfo viewInfo{};
+        viewInfo.image                           = m_depthImages[i]->get();
+        viewInfo.viewType                        = vk::ImageViewType::e2D;
+        viewInfo.format                          = format;
+        viewInfo.subresourceRange.aspectMask     = vk::ImageAspectFlagBits::eDepth;
+        viewInfo.subresourceRange.baseMipLevel   = 0;
+        viewInfo.subresourceRange.levelCount     = 1;
+        viewInfo.subresourceRange.baseArrayLayer = 0;
+        viewInfo.subresourceRange.layerCount     = 1;
+
+        m_depthViews[i] = m_context->device().createImageView(viewInfo);
+    }
+}
+
+void VulkanRenderer::createVertexBuffer() {
+    vk::DeviceSize bufferSize = sizeof(g_cubeVertices);
+    m_vertexBuffer = std::make_unique<Buffer>(*m_allocator, bufferSize,
+                                              vk::BufferUsageFlagBits::eVertexBuffer,
+                                              VMA_MEMORY_USAGE_CPU_TO_GPU,
+                                              "CubeVertexBuffer");
+
+    void* data = nullptr;
+    vmaMapMemory(m_allocator->get(), m_vertexBuffer->allocation(), &data);
+    memcpy(data, g_cubeVertices.data(), bufferSize);
+    vmaUnmapMemory(m_allocator->get(), m_vertexBuffer->allocation());
 }
 
 } // namespace reactor

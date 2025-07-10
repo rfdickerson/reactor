@@ -59,7 +59,11 @@ private:
 
     std::vector<std::unique_ptr<Image>> m_resolveImages;
     std::vector<vk::ImageView> m_resolveViews;
+    std::vector<std::unique_ptr<Image>> m_depthImages;
+    std::vector<vk::ImageView> m_depthViews;
     std::vector<vk::DescriptorSet> m_sceneViewImageDescriptorSets;
+
+    std::unique_ptr<Buffer> m_vertexBuffer;
 
     void createCoreVulkanObjects();
     void createSwapchainAndFrameManager();
@@ -67,12 +71,16 @@ private:
     void setupUI();
     void createMSAAImage();
     void createResolveImages();
+    void createDepthImages();
     void createSampler();
     void createDescriptorSets();
+    void createVertexBuffer();
 
     void handleSwapchainResizing();
     void beginCommandBuffer(vk::CommandBuffer cmd);
-    void beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView imageView, vk::Extent2D extent, bool clear);
+    void beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView imageView,
+                               vk::Extent2D extent, bool clear,
+                               vk::ImageView depthView = {});
     void bindDescriptorSets(vk::CommandBuffer cmd);
     void drawGeometry(vk::CommandBuffer cmd);
     void renderUI(vk::CommandBuffer cmd) const;
