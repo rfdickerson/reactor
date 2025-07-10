@@ -22,6 +22,7 @@ VulkanRenderer::VulkanRenderer(const RendererConfig& config, Window& window, Cam
     setupUI();
     createMSAAImage();
     createResolveImages();
+    createSceneViewImages();
     createSampler();
     createDescriptorSets();
 
@@ -98,6 +99,7 @@ VulkanRenderer::~VulkanRenderer() {
     for (auto i = 0; i < m_frameManager->getFramesInFlightCount(); ++i) {
         m_context->device().destroyImageView(m_msaaColorViews[i]);
         m_context->device().destroyImageView(m_resolveViews[i]);
+        m_context->device().destroyImageView(m_sceneViewViews[i]);
     }
 }
 
@@ -170,6 +172,7 @@ void VulkanRenderer::drawFrame() {
     const vk::Image     msaaImage    = m_msaaImages[frameIdx]->get();
     const vk::ImageView msaaView     = m_msaaColorViews[frameIdx];
     const vk::Image     resolveImage = m_resolveImages[frameIdx]->get();
+    const vk::Image     sceneViewImage = m_sceneViewImages[frameIdx]->get();
 
     SceneUBO sceneData{};
     const auto aspect = static_cast<float>(width) / static_cast<float>(height);
@@ -275,7 +278,7 @@ void VulkanRenderer::drawFrame() {
         vk::AccessFlagBits::eColorAttachmentWrite
     );
 
-    beginDynamicRendering(cmd, m_swapchain->getImageViews()[imageIndex], extent, true);
+    beginDynamicRendering(cmd, m_sceneViewViews[frameIdx], extent, true);
     utils::setupViewportAndScissor(cmd, extent);
 
     vk::DescriptorBufferInfo compositeBufferInfo = m_uniformManager->getDescriptorInfo<CompositeUBO>(frameIdx);
@@ -312,6 +315,28 @@ void VulkanRenderer::drawFrame() {
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_compositePipeline->getLayout(), 0, m_compositeDescriptorSet->getCurrentSet(m_frameManager->getFrameIndex()), nullptr);
     cmd.draw(3, 1, 0, 0);
     endDynamicRendering(cmd);
+
+    // -- Prepare sceneView for ImGui
+    m_imageStateTracker.transition(
+        cmd,
+        sceneViewImage,
+        vk::ImageLayout::eShaderReadOnlyOptimal,
+        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        vk::PipelineStageFlagBits::eFragmentShader,
+        vk::AccessFlagBits::eColorAttachmentWrite,
+        vk::AccessFlagBits::eShaderRead
+    );
+
+    // UI pass
+    m_imageStateTracker.transition(
+        cmd,
+        swapchainImage,
+        vk::ImageLayout::eColorAttachmentOptimal,
+        vk::PipelineStageFlagBits::eTopOfPipe,
+        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        {},
+        vk::AccessFlagBits::eColorAttachmentWrite
+    );
 
     // --- 4. UI Pass ---
     // The UI is rendered on top of the composited scene.
@@ -409,8 +434,7 @@ void VulkanRenderer::createResolveImages() {
         imageInfo.tiling        = vk::ImageTiling::eOptimal;
         imageInfo.initialLayout = vk::ImageLayout::eUndefined;
         imageInfo.usage         = vk::ImageUsageFlagBits::eColorAttachment |
-                vk::ImageUsageFlagBits::eSampled |
-                          vk::ImageUsageFlagBits::eTransferDst;
+                          vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst;
         imageInfo.samples     = vk::SampleCountFlagBits::e1; // Resolve is NOT multisampled!
         imageInfo.sharingMode = vk::SharingMode::eExclusive;
 
@@ -431,6 +455,56 @@ void VulkanRenderer::createResolveImages() {
         viewInfo.subresourceRange.layerCount     = 1;
 
         m_resolveViews[i] = m_context->device().createImageView(viewInfo);
+    }
+}
+void VulkanRenderer::createSceneViewImages() {
+    vk::Format   format = m_swapchain->getFormat();
+    vk::Extent2D extent = m_swapchain->getExtent();
+
+    size_t framesInFlight = m_frameManager->getFramesInFlightCount();
+
+    // destroy old resources if recreating
+    for (size_t i = 0; i < m_sceneViewViews.size(); ++i) {
+        m_context->device().destroyImageView(m_sceneViewViews[i]);
+    }
+    m_sceneViewImages.clear();
+    m_sceneViewViews.clear();
+
+    m_sceneViewImages.resize(framesInFlight);
+    m_sceneViewViews.resize(framesInFlight);
+
+    for (size_t i = 0; i < framesInFlight; ++i) {
+        vk::ImageCreateInfo imageInfo{};
+        imageInfo.imageType     = vk::ImageType::e2D;
+        imageInfo.extent.width  = extent.width;
+        imageInfo.extent.height = extent.height;
+        imageInfo.extent.depth  = 1;
+        imageInfo.mipLevels     = 1;
+        imageInfo.arrayLayers   = 1;
+        imageInfo.format        = format;
+        imageInfo.tiling        = vk::ImageTiling::eOptimal;
+        imageInfo.initialLayout = vk::ImageLayout::eUndefined;
+        imageInfo.usage         = vk::ImageUsageFlagBits::eColorAttachment |
+            vk::ImageUsageFlagBits::eSampled |
+            vk::ImageUsageFlagBits::eTransferSrc;
+        imageInfo.samples     = vk::SampleCountFlagBits::e1;
+        imageInfo.sharingMode = vk::SharingMode::eExclusive;
+
+        m_sceneViewImages[i] = std::make_unique<Image>(*m_allocator, imageInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+
+        m_imageStateTracker.recordState(m_sceneViewImages[i]->get(), vk::ImageLayout::eUndefined);
+
+        vk::ImageViewCreateInfo viewInfo{};
+        viewInfo.image                           = m_sceneViewImages[i]->get();
+        viewInfo.viewType                        = vk::ImageViewType::e2D;
+        viewInfo.format                          = format;
+        viewInfo.subresourceRange.aspectMask     = vk::ImageAspectFlagBits::eColor;
+        viewInfo.subresourceRange.baseMipLevel   = 0;
+        viewInfo.subresourceRange.levelCount     = 1;
+        viewInfo.subresourceRange.baseArrayLayer = 0;
+        viewInfo.subresourceRange.layerCount     = 1;
+
+        m_sceneViewViews[i] = m_context->device().createImageView(viewInfo);
     }
 }
 
@@ -458,7 +532,7 @@ void VulkanRenderer::createDescriptorSets() {
     const auto framesInFlight = m_frameManager->getFramesInFlightCount();
     m_sceneViewImageDescriptorSets.resize(framesInFlight);
     for (int i = 0; i < framesInFlight; ++i) {
-        m_sceneViewImageDescriptorSets[i] = m_imgui->createDescriptorSet(m_resolveViews[i], m_sampler->get());
+        m_sceneViewImageDescriptorSets[i] = m_imgui->createDescriptorSet(m_sceneViewViews[i], m_sampler->get());
     }
 }
 
