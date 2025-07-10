@@ -113,7 +113,7 @@ void VulkanRenderer::bindDescriptorSets(vk::CommandBuffer cmd) {
 
 void VulkanRenderer::drawGeometry(vk::CommandBuffer cmd) {
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline->get());
-    cmd.draw(3, 1, 0, 0);
+    cmd.draw(36, 1, 0, 0);
 }
 
 void VulkanRenderer::renderUI(const vk::CommandBuffer cmd) const {
