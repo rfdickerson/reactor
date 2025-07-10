@@ -27,6 +27,26 @@ inline void resolveMSAAImageTo(vk::CommandBuffer cmd, vk::Image msaaImage, vk::I
                      vk::ImageLayout::eTransferDstOptimal, 1, &resolveRegion);
 }
 
+inline void copyImage(vk::CommandBuffer cmd,
+                      vk::Image srcImage,
+                      vk::ImageLayout srcLayout,
+                      vk::Image dstImage,
+                      vk::ImageLayout dstLayout,
+                      uint32_t width,
+                      uint32_t height) {
+    vk::ImageCopy copyRegion{};
+    copyRegion.srcSubresource.aspectMask     = vk::ImageAspectFlagBits::eColor;
+    copyRegion.srcSubresource.mipLevel       = 0;
+    copyRegion.srcSubresource.baseArrayLayer = 0;
+    copyRegion.srcSubresource.layerCount     = 1;
+    copyRegion.srcOffset                     = vk::Offset3D{0, 0, 0};
+    copyRegion.dstSubresource                = copyRegion.srcSubresource;
+    copyRegion.dstOffset                     = vk::Offset3D{0, 0, 0};
+    copyRegion.extent                        = vk::Extent3D{width, height, 1};
+
+    cmd.copyImage(srcImage, srcLayout, dstImage, dstLayout, 1, &copyRegion);
+}
+
 inline void setupViewportAndScissor(vk::CommandBuffer cmd, vk::Extent2D extent) {
     vk::Viewport viewport{};
     viewport.x        = 0.0f;

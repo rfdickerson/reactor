@@ -22,6 +22,7 @@ VulkanRenderer::VulkanRenderer(const RendererConfig& config, Window& window, Cam
     setupUI();
     createMSAAImage();
     createResolveImages();
+    createSceneViewImages();
     createSampler();
     createDescriptorSets();
 
@@ -98,6 +99,7 @@ VulkanRenderer::~VulkanRenderer() {
     for (auto i = 0; i < m_frameManager->getFramesInFlightCount(); ++i) {
         m_context->device().destroyImageView(m_msaaColorViews[i]);
         m_context->device().destroyImageView(m_resolveViews[i]);
+        m_context->device().destroyImageView(m_sceneViewViews[i]);
     }
 }
 
@@ -313,6 +315,52 @@ void VulkanRenderer::drawFrame() {
     cmd.draw(3, 1, 0, 0);
     endDynamicRendering(cmd);
 
+    // Copy the composited result so ImGui can sample it
+    m_imageStateTracker.transition(
+        cmd,
+        swapchainImage,
+        vk::ImageLayout::eTransferSrcOptimal,
+        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        vk::PipelineStageFlagBits::eTransfer,
+        vk::AccessFlagBits::eColorAttachmentWrite,
+        vk::AccessFlagBits::eTransferRead
+    );
+
+    const vk::Image sceneViewImage = m_sceneViewImages[frameIdx]->get();
+    m_imageStateTracker.transition(
+        cmd,
+        sceneViewImage,
+        vk::ImageLayout::eTransferDstOptimal,
+        vk::PipelineStageFlagBits::eTopOfPipe,
+        vk::PipelineStageFlagBits::eTransfer,
+        {},
+        vk::AccessFlagBits::eTransferWrite
+    );
+
+    utils::copyImage(cmd, swapchainImage, vk::ImageLayout::eTransferSrcOptimal,
+                     sceneViewImage, vk::ImageLayout::eTransferDstOptimal,
+                     width, height);
+
+    m_imageStateTracker.transition(
+        cmd,
+        sceneViewImage,
+        vk::ImageLayout::eShaderReadOnlyOptimal,
+        vk::PipelineStageFlagBits::eTransfer,
+        vk::PipelineStageFlagBits::eFragmentShader,
+        vk::AccessFlagBits::eTransferWrite,
+        vk::AccessFlagBits::eShaderRead
+    );
+
+    m_imageStateTracker.transition(
+        cmd,
+        swapchainImage,
+        vk::ImageLayout::eColorAttachmentOptimal,
+        vk::PipelineStageFlagBits::eTransfer,
+        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        vk::AccessFlagBits::eTransferRead,
+        vk::AccessFlagBits::eColorAttachmentWrite
+    );
+
     // --- 4. UI Pass ---
     // The UI is rendered on top of the composited scene.
     // The swapchain image is already in COLOR_ATTACHMENT_OPTIMAL, so no transition is needed.
@@ -434,6 +482,49 @@ void VulkanRenderer::createResolveImages() {
     }
 }
 
+void VulkanRenderer::createSceneViewImages() {
+    vk::Format   format = m_swapchain->getFormat();
+    vk::Extent2D extent = m_swapchain->getExtent();
+
+    size_t framesInFlight = m_frameManager->getFramesInFlightCount();
+    m_sceneViewImages.resize(framesInFlight);
+    m_sceneViewViews.resize(framesInFlight);
+
+    for (size_t i = 0; i < framesInFlight; ++i) {
+        vk::ImageCreateInfo imageInfo{};
+        imageInfo.imageType     = vk::ImageType::e2D;
+        imageInfo.extent.width  = extent.width;
+        imageInfo.extent.height = extent.height;
+        imageInfo.extent.depth  = 1;
+        imageInfo.mipLevels     = 1;
+        imageInfo.arrayLayers   = 1;
+        imageInfo.format        = format;
+        imageInfo.tiling        = vk::ImageTiling::eOptimal;
+        imageInfo.initialLayout = vk::ImageLayout::eUndefined;
+        imageInfo.usage         = vk::ImageUsageFlagBits::eTransferDst |
+                                  vk::ImageUsageFlagBits::eSampled;
+        imageInfo.samples       = vk::SampleCountFlagBits::e1;
+        imageInfo.sharingMode   = vk::SharingMode::eExclusive;
+
+        m_sceneViewImages[i] =
+            std::make_unique<Image>(*m_allocator, imageInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+
+        m_imageStateTracker.recordState(m_sceneViewImages[i]->get(), vk::ImageLayout::eUndefined);
+
+        vk::ImageViewCreateInfo viewInfo{};
+        viewInfo.image                           = m_sceneViewImages[i]->get();
+        viewInfo.viewType                        = vk::ImageViewType::e2D;
+        viewInfo.format                          = format;
+        viewInfo.subresourceRange.aspectMask     = vk::ImageAspectFlagBits::eColor;
+        viewInfo.subresourceRange.baseMipLevel   = 0;
+        viewInfo.subresourceRange.levelCount     = 1;
+        viewInfo.subresourceRange.baseArrayLayer = 0;
+        viewInfo.subresourceRange.layerCount     = 1;
+
+        m_sceneViewViews[i] = m_context->device().createImageView(viewInfo);
+    }
+}
+
 void VulkanRenderer::createSampler() {
     vk::SamplerCreateInfo samplerInfo{};
     samplerInfo.magFilter        = vk::Filter::eLinear;
@@ -458,7 +549,7 @@ void VulkanRenderer::createDescriptorSets() {
     const auto framesInFlight = m_frameManager->getFramesInFlightCount();
     m_sceneViewImageDescriptorSets.resize(framesInFlight);
     for (int i = 0; i < framesInFlight; ++i) {
-        m_sceneViewImageDescriptorSets[i] = m_imgui->createDescriptorSet(m_resolveViews[i], m_sampler->get());
+        m_sceneViewImageDescriptorSets[i] = m_imgui->createDescriptorSet(m_sceneViewViews[i], m_sampler->get());
     }
 }
 

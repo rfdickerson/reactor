@@ -59,6 +59,8 @@ private:
 
     std::vector<std::unique_ptr<Image>> m_resolveImages;
     std::vector<vk::ImageView> m_resolveViews;
+    std::vector<std::unique_ptr<Image>> m_sceneViewImages;
+    std::vector<vk::ImageView> m_sceneViewViews;
     std::vector<vk::DescriptorSet> m_sceneViewImageDescriptorSets;
 
     void createCoreVulkanObjects();
@@ -67,6 +69,7 @@ private:
     void setupUI();
     void createMSAAImage();
     void createResolveImages();
+    void createSceneViewImages();
     void createSampler();
     void createDescriptorSets();
 
