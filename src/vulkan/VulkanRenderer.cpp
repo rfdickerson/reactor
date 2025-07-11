@@ -23,6 +23,7 @@ VulkanRenderer::VulkanRenderer(const RendererConfig& config, Window& window, Cam
     createMSAAImage();
     createResolveImages();
     createSceneViewImages();
+    createDepthImages();
     createSampler();
     createDescriptorSets();
 
@@ -532,8 +533,55 @@ void VulkanRenderer::createDescriptorSets() {
     const auto framesInFlight = m_frameManager->getFramesInFlightCount();
     m_sceneViewImageDescriptorSets.resize(framesInFlight);
     for (int i = 0; i < framesInFlight; ++i) {
-        m_sceneViewImageDescriptorSets[i] = m_imgui->createDescriptorSet(m_sceneViewViews[i], m_sampler->get());
+        m_sceneViewImageDescriptorSets[i] =
+            m_imgui->createDescriptorSet(m_sceneViewViews[i], m_sampler->get());
     }
+}
+void VulkanRenderer::createDepthImages() {
+    vk::Format   format = vk::Format::eD32Sfloat; // Common depth format
+    vk::Extent2D extent = m_swapchain->getExtent();
+    size_t framesInFlight = m_frameManager->getFramesInFlightCount();
+
+    for (size_t i = 0; i < m_depthImages.size(); ++i) {
+        m_context->device().destroyImageView(m_depthViews[i]);
+    }
+    m_depthImages.clear();
+    m_depthViews.clear();
+
+    m_depthImages.resize(framesInFlight);
+    m_depthViews.resize(framesInFlight);
+    for (size_t i = 0; i < framesInFlight; ++i) {
+        vk::ImageCreateInfo imageInfo{};
+        imageInfo.imageType     = vk::ImageType::e2D;
+        imageInfo.extent.width  = extent.width;
+        imageInfo.extent.height = extent.height;
+        imageInfo.extent.depth  = 1;
+        imageInfo.mipLevels     = 1;
+        imageInfo.arrayLayers   = 1;
+        imageInfo.format        = format;
+        imageInfo.tiling        = vk::ImageTiling::eOptimal;
+        imageInfo.initialLayout = vk::ImageLayout::eUndefined;
+        imageInfo.usage         = vk::ImageUsageFlagBits::eDepthStencilAttachment |
+            vk::ImageUsageFlagBits::eSampled;
+        imageInfo.samples     = vk::SampleCountFlagBits::e1;
+        imageInfo.sharingMode = vk::SharingMode::eExclusive;
+
+        m_depthImages[i] = std::make_unique<Image>(*m_allocator, imageInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+        m_imageStateTracker.recordState(m_depthImages[i]->get(), vk::ImageLayout::eUndefined);
+
+        vk::ImageViewCreateInfo viewInfo{};
+        viewInfo.image                           = m_depthImages[i]->get();
+        viewInfo.viewType                        = vk::ImageViewType::e2D;
+        viewInfo.format                          = format;
+        viewInfo.subresourceRange.aspectMask     = vk::ImageAspectFlagBits::eDepth;
+        viewInfo.subresourceRange.baseMipLevel   = 0;
+        viewInfo.subresourceRange.levelCount     = 1;
+        viewInfo.subresourceRange.baseArrayLayer = 0;
+        viewInfo.subresourceRange.layerCount     = 1;
+
+        m_depthViews[i] = m_context->device().createImageView(viewInfo);
+    }
+
 }
 
 } // namespace reactor

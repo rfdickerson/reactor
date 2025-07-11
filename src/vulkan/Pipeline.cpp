@@ -20,26 +20,31 @@ std::vector<char> Pipeline::readFile(const std::string &filename) const {
 
 Pipeline::Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
                    const std::string &vertShaderPath, const std::string &fragShaderPath,
-                   const std::vector<vk::DescriptorSetLayout> &setLayouts, uint32_t samples)
+                   const std::vector<vk::DescriptorSetLayout> &setLayouts, uint32_t samples,
+                   vk::Format depthAttachmentFormat, bool depthWriteEnable)
     : m_device(device) {
     // 1. Read shader code from files
     auto vertShaderCode = readFile(vertShaderPath);
-    auto fragShaderCode = readFile(fragShaderPath);
-
     auto vertShaderModule = ShaderModule(m_device, vertShaderCode);
-    auto fragShaderModule = ShaderModule(m_device, fragShaderCode);
 
     vk::PipelineShaderStageCreateInfo vertStageInfo{};
     vertStageInfo.stage  = vk::ShaderStageFlagBits::eVertex;
     vertStageInfo.module = vertShaderModule.getHandle();
     vertStageInfo.pName  = "main";
 
-    vk::PipelineShaderStageCreateInfo fragStageInfo{};
-    fragStageInfo.stage  = vk::ShaderStageFlagBits::eFragment;
-    fragStageInfo.module = fragShaderModule.getHandle();
-    fragStageInfo.pName  = "main";
+    std::vector<vk::PipelineShaderStageCreateInfo> shaderStages = {vertStageInfo};
 
-    vk::PipelineShaderStageCreateInfo shaderStages[] = {vertStageInfo, fragStageInfo};
+    std::unique_ptr<ShaderModule> fragShaderModule;
+    if (!fragShaderPath.empty()) {
+        auto fragShaderCode = readFile(fragShaderPath);
+        fragShaderModule = std::make_unique<ShaderModule>(m_device, fragShaderCode);
+
+        vk::PipelineShaderStageCreateInfo fragStageInfo{};
+        fragStageInfo.stage  = vk::ShaderStageFlagBits::eFragment;
+        fragStageInfo.module = fragShaderModule->getHandle();
+        fragStageInfo.pName  = "main";
+        shaderStages.push_back(fragStageInfo);
+    }
 
     // 3. Vertex input (empty, for a basic triangle with no vertex buffer)
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo{};
@@ -67,8 +72,16 @@ Pipeline::Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
     // 7. Multisampling (disabled)
     vk::PipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sampleShadingEnable = VK_FALSE;
-
     multisampling.rasterizationSamples = utils::mapSampleCountFlag(samples);
+
+    vk::PipelineDepthStencilStateCreateInfo depthStencil{};
+    if (depthAttachmentFormat != vk::Format::eUndefined) {
+        depthStencil.depthTestEnable = VK_TRUE;
+        depthStencil.depthWriteEnable = depthWriteEnable ? VK_TRUE : VK_FALSE;
+        depthStencil.depthCompareOp = vk::CompareOp::eLess;
+        depthStencil.depthBoundsTestEnable = VK_FALSE;
+        depthStencil.stencilTestEnable = VK_FALSE;
+    }
 
     // 8. Color blending
     vk::PipelineColorBlendAttachmentState colorBlendAttachment{};
@@ -76,10 +89,11 @@ Pipeline::Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
         vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
         vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
     colorBlendAttachment.blendEnable = VK_FALSE;
+
     vk::PipelineColorBlendStateCreateInfo colorBlending{};
     colorBlending.logicOpEnable   = VK_FALSE;
-    colorBlending.attachmentCount = 1;
-    colorBlending.pAttachments    = &colorBlendAttachment;
+    colorBlending.attachmentCount = (colorAttachmentFormat != vk::Format::eUndefined) ? 1 : 0;
+    colorBlending.pAttachments    = (colorAttachmentFormat != vk::Format::eUndefined) ? &colorBlendAttachment : nullptr;
 
     // 9. Pipeline layout
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -97,16 +111,16 @@ Pipeline::Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
 
     // 11. Dynamic rendering
     vk::PipelineRenderingCreateInfo renderingInfo{};
-    renderingInfo.colorAttachmentCount    = 1;
-    renderingInfo.pColorAttachmentFormats = &colorAttachmentFormat;
+    renderingInfo.colorAttachmentCount    = (colorAttachmentFormat != vk::Format::eUndefined) ? 1 : 0;
+    renderingInfo.pColorAttachmentFormats = (colorAttachmentFormat != vk::Format::eUndefined) ? &colorAttachmentFormat : nullptr;
     renderingInfo.viewMask                = 0;
-    renderingInfo.depthAttachmentFormat   = vk::Format::eUndefined;
+    renderingInfo.depthAttachmentFormat   = depthAttachmentFormat;
     renderingInfo.stencilAttachmentFormat = vk::Format::eUndefined;
 
     // 11. Create graphics pipeline
     vk::GraphicsPipelineCreateInfo pipelineInfo{};
-    pipelineInfo.stageCount          = 2;
-    pipelineInfo.pStages             = shaderStages;
+    pipelineInfo.stageCount          = static_cast<uint32_t>(shaderStages.size());
+    pipelineInfo.pStages             = shaderStages.data();
     pipelineInfo.pVertexInputState   = &vertexInputInfo;
     pipelineInfo.pInputAssemblyState = &inputAssembly;
     pipelineInfo.pViewportState      = &viewportState;
@@ -129,10 +143,42 @@ Pipeline::Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
 }
 
 Pipeline::~Pipeline() {
-    if (m_pipeline)
+    if (m_pipeline) {
         m_device.destroyPipeline(m_pipeline);
-    if (m_pipelineLayout)
+}
+    if (m_pipelineLayout) {
         m_device.destroyPipelineLayout(m_pipelineLayout);
 }
+}
+
+Pipeline::Pipeline(Pipeline&& other) noexcept
+    : m_device(other.m_device),
+      m_pipelineLayout(other.m_pipelineLayout),
+      m_pipeline(other.m_pipeline)
+{
+    other.m_pipelineLayout = nullptr;
+    other.m_pipeline = nullptr;
+}
+
+Pipeline& Pipeline::operator=(Pipeline&& other) noexcept
+{
+    if (this != &other) {
+        // Destroy our own Vulkan objects first
+        if (m_pipeline) {
+            m_device.destroyPipeline(m_pipeline);
+        }
+        if (m_pipelineLayout) {
+            m_device.destroyPipelineLayout(m_pipelineLayout);
+        }
+        m_device = other.m_device;
+        m_pipelineLayout = other.m_pipelineLayout;
+        m_pipeline = other.m_pipeline;
+
+        other.m_pipelineLayout = nullptr;
+        other.m_pipeline = nullptr;
+    }
+    return *this;
+}
+
 
 } // namespace reactor

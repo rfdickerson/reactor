@@ -2,21 +2,26 @@ Checks: >
   clang-analyzer-*,
   bugprone-*,
   performance-*,
-  readability-*,
+  hicpp-*,
   modernize-*,
   cppcoreguidelines-*,
-  misc-*,
+  readability-*,
+  
+  # disable overly noisy checks
   -clang-analyzer-alpha.*,
   -cppcoreguidelines-pro-type-union-access,
   -cppcoreguidelines-pro-type-reinterpret-cast,
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
   -cppcoreguidelines-avoid-magic-numbers,
+  -misc-unused-using-decls,
+  -misc-unused-parameters,
+  -hicpp-vararg,
   -modernize-use-trailing-return-type,
-  -readability-magic-numbers
+  -readability-const-parameter,
+  -readability-const-variable
 
 WarningsAsErrors: ''
-
-HeaderFilterRegex: '.*'
+HeaderFilterRegex: '^(include|src)/'
 FormatStyle: file
 
 CheckOptions:

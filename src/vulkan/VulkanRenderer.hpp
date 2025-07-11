@@ -63,6 +63,10 @@ private:
     std::vector<vk::ImageView> m_sceneViewViews;
     std::vector<vk::DescriptorSet> m_sceneViewImageDescriptorSets;
 
+    std::vector<std::unique_ptr<Image>> m_depthImages;
+    std::vector<vk::ImageView> m_depthViews;
+    std::vector<vk::DescriptorSet> m_depthImageDescriptorSets;
+
     void createCoreVulkanObjects();
     void createSwapchainAndFrameManager();
     void createPipelineAndDescriptors();
@@ -72,6 +76,7 @@ private:
     void createSceneViewImages();
     void createSampler();
     void createDescriptorSets();
+    void createDepthImages();
 
     void handleSwapchainResizing();
     void beginCommandBuffer(vk::CommandBuffer cmd);

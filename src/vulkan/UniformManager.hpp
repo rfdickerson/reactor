@@ -32,7 +32,7 @@ public:
 
     // Get the descriptor info need to update a descriptor set.
     template <typename T>
-    vk::DescriptorBufferInfo getDescriptorInfo(size_t frameIndex) const {
+    [[nodiscard]] vk::DescriptorBufferInfo getDescriptorInfo(size_t frameIndex) const {
         const auto& name = m_uboTypeMap.at(std::type_index(typeid(T)));
         const auto& buffer = m_uniformBuffers.at(name)[frameIndex];
 
