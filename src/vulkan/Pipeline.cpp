@@ -78,7 +78,7 @@ Pipeline::Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
     if (depthAttachmentFormat != vk::Format::eUndefined) {
         depthStencil.depthTestEnable = VK_TRUE;
         depthStencil.depthWriteEnable = depthWriteEnable ? VK_TRUE : VK_FALSE;
-        depthStencil.depthCompareOp = vk::CompareOp::eLess;
+        depthStencil.depthCompareOp = vk::CompareOp::eLessOrEqual;
         depthStencil.depthBoundsTestEnable = VK_FALSE;
         depthStencil.stencilTestEnable = VK_FALSE;
     }
@@ -132,6 +132,11 @@ Pipeline::Pipeline(vk::Device device, vk::Format colorAttachmentFormat,
     pipelineInfo.subpass             = 0;
     pipelineInfo.pDynamicState       = &dynamicState;
     pipelineInfo.pNext               = &renderingInfo;
+
+    // assign depth stencil state to the pipeline info if specified
+    if (depthAttachmentFormat != vk::Format::eUndefined) {
+        pipelineInfo.pDepthStencilState = &depthStencil;
+    }
 
     auto pipelineResult = m_device.createGraphicsPipeline({}, pipelineInfo);
     if (pipelineResult.result != vk::Result::eSuccess) {
