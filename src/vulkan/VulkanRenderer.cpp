@@ -57,13 +57,18 @@ void VulkanRenderer::createPipelineAndDescriptors() {
         vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1,
                                        vk::ShaderStageFlagBits::eVertex),
     };
-
     m_descriptorSet = std::make_unique<DescriptorSet>(m_context->device(), 2, bindings);
-
     const std::vector setLayouts = {m_descriptorSet->getLayout()};
 
-    m_pipeline = std::make_unique<Pipeline>(m_context->device(), vk::Format::eR16G16B16A16Sfloat,
-                                            vertShaderPath, fragShaderPath, setLayouts, 4, vk::Format::eD32Sfloat, true);
+    m_pipeline = Pipeline::Builder(m_context->device())
+        .setVertexShader(m_config.vertShaderPath)
+        .setFragmentShader(m_config.fragShaderPath)
+        .setColorAttachment(vk::Format::eR16G16B16A16Sfloat)
+        .setDepthAttachment(vk::Format::eD32Sfloat, true) // depth test and write
+        .setDescriptorSetLayouts(setLayouts)
+        .setMultisample(4)
+        .setFrontFace(vk::FrontFace::eClockwise) // Assuming standard winding order for cubes
+        .build();
 
     const std::vector compositeBindings = {
         vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment),
@@ -73,14 +78,13 @@ void VulkanRenderer::createPipelineAndDescriptors() {
     m_compositeDescriptorSet = std::make_unique<DescriptorSet>(m_context->device(), 2, compositeBindings);
     std::vector compositeSetLayouts = {m_compositeDescriptorSet->getLayout()};
 
-    vk::Format swapchainFormat = m_swapchain->getFormat();
-
-    m_compositePipeline = std::make_unique<Pipeline>(
-        m_context->device(),
-        swapchainFormat,
-        m_config.compositeVertShaderPath,
-        m_config.compositeFragShaderPath,
-        compositeSetLayouts, 1);
+    m_compositePipeline = Pipeline::Builder(m_context->device())
+        .setVertexShader(m_config.compositeVertShaderPath)
+        .setFragmentShader(m_config.compositeFragShaderPath)
+        .setColorAttachment(m_swapchain->getFormat())
+        .setDescriptorSetLayouts(compositeSetLayouts)
+        .setMultisample(1) // No MSAA for composite pass
+        .build();
 }
 
 void VulkanRenderer::handleSwapchainResizing() {
@@ -311,7 +315,17 @@ void VulkanRenderer::drawFrame() {
         vk::AccessFlagBits::eColorAttachmentWrite
     );
 
-    beginDynamicRendering(cmd, m_sceneViewViews[frameIdx], depthView, extent, true);
+    m_imageStateTracker.transition(
+    cmd,
+    sceneViewImage,
+    vk::ImageLayout::eColorAttachmentOptimal,
+    vk::PipelineStageFlagBits::eFragmentShader,  // Source stage (previous shader read use)
+    vk::PipelineStageFlagBits::eColorAttachmentOutput,  // Destination stage
+    vk::AccessFlagBits::eShaderRead,  // Source access
+    vk::AccessFlagBits::eColorAttachmentWrite  // Destination access
+);
+
+    beginDynamicRendering(cmd, m_sceneViewViews[frameIdx], nullptr, extent, true);
     utils::setupViewportAndScissor(cmd, extent);
 
     vk::DescriptorBufferInfo compositeBufferInfo = m_uniformManager->getDescriptorInfo<CompositeUBO>(frameIdx);
@@ -623,16 +637,14 @@ void VulkanRenderer::createDepthPipelineAndDescriptorSets() {
     std::vector<vk::DescriptorSetLayout> setLayouts = {
         m_descriptorSet->getLayout()};
 
-    m_depthPipeline = std::make_unique<Pipeline>(
-        m_context->device(),
-        vk::Format::eUndefined,
-        depthVertexShaderPath,
-        emptyFragShaderPath,
-        setLayouts,
-        4,
-        vk::Format::eD32Sfloat,
-        true
-        );
+    m_depthPipeline = Pipeline::Builder(m_context->device())
+       .setVertexShader(m_config.vertShaderPath)
+       // No fragment shader, we only want depth output
+       .setDepthAttachment(vk::Format::eD32Sfloat, true) // depth test and write enabled
+       .setDescriptorSetLayouts(setLayouts)
+       .setMultisample(4)
+       .setFrontFace(vk::FrontFace::eCounterClockwise) // Match main geometry pipeline
+       .build();
 
 
 }
