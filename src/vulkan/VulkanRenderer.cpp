@@ -84,6 +84,7 @@ void VulkanRenderer::createPipelineAndDescriptors() {
         .setColorAttachment(m_swapchain->getFormat())
         .setDescriptorSetLayouts(compositeSetLayouts)
         .setMultisample(1) // No MSAA for composite pass
+        .setFrontFace(vk::FrontFace::eClockwise) // Assuming standard winding order for cubes
         .build();
 }
 
@@ -652,7 +653,7 @@ void VulkanRenderer::createDepthPipelineAndDescriptorSets() {
        .setDepthAttachment(vk::Format::eD32Sfloat, true) // depth test and write enabled
        .setDescriptorSetLayouts(setLayouts)
        .setMultisample(4)
-       .setFrontFace(vk::FrontFace::eCounterClockwise) // Match main geometry pipeline
+       .setFrontFace(vk::FrontFace::eClockwise) // Match main geometry pipeline
        .build();
 
 
