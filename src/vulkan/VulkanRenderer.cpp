@@ -73,6 +73,7 @@ void VulkanRenderer::createPipelineAndDescriptors() {
     const std::vector compositeBindings = {
         vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment),
         vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
+        vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment),
     };
 
     m_compositeDescriptorSet = std::make_unique<DescriptorSet>(m_context->device(), 2, compositeBindings);
@@ -245,6 +246,17 @@ void VulkanRenderer::drawFrame() {
     // get depth image view for this frame
     vk::ImageView depthView = m_depthViews[frameIdx];
 
+    m_imageStateTracker.transition(
+        cmd,
+        m_depthImages[frameIdx]->get(),
+        vk::ImageLayout::eDepthAttachmentOptimal,
+        vk::PipelineStageFlagBits::eTopOfPipe,
+        vk::PipelineStageFlagBits::eEarlyFragmentTests,
+        vk::AccessFlagBits::eNone,
+        vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+        vk::ImageAspectFlagBits::eDepth
+        );
+
     beginDynamicRendering(cmd, nullptr, depthView, extent, false, true);
     utils::setupViewportAndScissor(cmd, extent);
     bindDescriptorSets(cmd);
@@ -333,7 +345,18 @@ void VulkanRenderer::drawFrame() {
     vk::PipelineStageFlagBits::eColorAttachmentOutput,  // Destination stage
     vk::AccessFlagBits::eShaderRead,  // Source access
     vk::AccessFlagBits::eColorAttachmentWrite  // Destination access
-);
+    );
+
+    m_imageStateTracker.transition(
+        cmd,
+        m_depthImages[frameIdx]->get(),
+        vk::ImageLayout::eDepthStencilReadOnlyOptimal,
+        vk::PipelineStageFlagBits::eFragmentShader,
+        vk::PipelineStageFlagBits::eEarlyFragmentTests,
+        vk::AccessFlagBits::eShaderRead,
+        vk::AccessFlagBits::eDepthStencilAttachmentRead,
+        vk::ImageAspectFlagBits::eDepth);
+
 
     beginDynamicRendering(cmd, m_sceneViewViews[frameIdx], nullptr, extent, true);
     utils::setupViewportAndScissor(cmd, extent);
@@ -344,6 +367,11 @@ void VulkanRenderer::drawFrame() {
     imageInfo.imageView = m_resolveViews[frameIdx];
     imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
     imageInfo.sampler = m_sampler->get();
+
+    vk::DescriptorImageInfo depthImageInfo = {};
+    depthImageInfo.imageView = depthView;
+    depthImageInfo.imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+    depthImageInfo.sampler = m_sampler->get();
 
     std::vector writes = {
         vk::WriteDescriptorSet{
@@ -363,6 +391,15 @@ void VulkanRenderer::drawFrame() {
             vk::DescriptorType::eUniformBuffer,
             nullptr,
             &compositeBufferInfo,
+            nullptr
+        },
+        vk::WriteDescriptorSet{
+            m_compositeDescriptorSet->getCurrentSet(frameIdx),
+            2,
+            0,
+            1,
+            vk::DescriptorType::eCombinedImageSampler,
+            &depthImageInfo,
             nullptr
         }
     };
