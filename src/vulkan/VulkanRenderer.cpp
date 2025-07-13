@@ -152,31 +152,40 @@ void VulkanRenderer::beginDynamicRendering(
     bool clearColor=true,
     bool clearDepth=false)
 {
-    constexpr vk::ClearValue clearColorValue = vk::ClearColorValue(std::array{0.0f, 0.0f, 0.0f, 1.0f});
     vk::RenderingAttachmentInfo colorAttachment{};
-    colorAttachment.imageView   = colorImageView;
-    colorAttachment.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
-    colorAttachment.loadOp      = clearColor ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad;
-    colorAttachment.storeOp     = vk::AttachmentStoreOp::eStore;
-    colorAttachment.clearValue  = clearColorValue;
+    vk::RenderingAttachmentInfo depthAttachment{};
+    vk::RenderingInfo renderingInfo{};
+    renderingInfo.renderArea.offset = vk::Offset2D{0, 0};
+    renderingInfo.renderArea.extent = extent;
+    renderingInfo.layerCount = 1;
 
+    constexpr vk::ClearValue clearColorValue = vk::ClearColorValue(std::array{0.0f, 0.0f, 0.0f, 1.0f});
     vk::ClearValue depthClearValue{};
     depthClearValue.depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
 
-    vk::RenderingAttachmentInfo depthAttachment{};
-    depthAttachment.imageView   = depthImageView;
-    depthAttachment.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-    depthAttachment.loadOp      = clearDepth ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad;
-    depthAttachment.storeOp     = vk::AttachmentStoreOp::eStore;
-    depthAttachment.clearValue  = depthClearValue;
+    if (colorImageView) {
+        colorAttachment.imageView = colorImageView;
+        colorAttachment.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+        colorAttachment.loadOp = clearColor ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad;
+        colorAttachment.storeOp = vk::AttachmentStoreOp::eStore;
+        colorAttachment.clearValue = clearColorValue;
+        renderingInfo.colorAttachmentCount = 1;
+        renderingInfo.pColorAttachments = &colorAttachment;
+    } else {
+        renderingInfo.colorAttachmentCount = 0;
+        renderingInfo.pColorAttachments = nullptr;
+    }
 
-    vk::RenderingInfo renderingInfo{};
-    renderingInfo.renderArea.offset    = vk::Offset2D{0, 0};
-    renderingInfo.renderArea.extent    = extent;
-    renderingInfo.layerCount           = 1;
-    renderingInfo.colorAttachmentCount = 1;
-    renderingInfo.pColorAttachments    = &colorAttachment;
-    renderingInfo.pDepthAttachment     = &depthAttachment;
+    if (depthImageView) {
+        depthAttachment.imageView = depthImageView;
+        depthAttachment.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+        depthAttachment.loadOp = clearDepth ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad;
+        depthAttachment.storeOp = vk::AttachmentStoreOp::eStore;
+        depthAttachment.clearValue = depthClearValue;
+        renderingInfo.pDepthAttachment = &depthAttachment;
+    } else {
+        renderingInfo.pDepthAttachment = nullptr;
+    }
 
     cmd.beginRendering(renderingInfo);
 }
