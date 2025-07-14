@@ -53,7 +53,7 @@ void OrbitController::updateCamera() {
      constexpr glm::vec3 target(0.0f);
      constexpr glm::vec3 up(0.0f, 1.0f, 0.0f);
 
-     m_camera.setView(glm::lookAt(position, target, up));
+     m_camera.lookAt(position, target, up);
  }
 
 

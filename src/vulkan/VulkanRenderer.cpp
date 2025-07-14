@@ -226,8 +226,8 @@ void VulkanRenderer::drawFrame() {
     m_uniformManager->update<CompositeUBO>(frameIdx, compositeData);
 
     SceneUBO ubo{};
-    ubo.view = m_camera.getView();
-    ubo.projection = m_camera.getProjection();
+    ubo.view = m_camera.getViewMatrix();
+    ubo.projection = m_camera.getProjectionMatrix();
 
     m_uniformManager->update<SceneUBO>(frameIdx, ubo);
 
