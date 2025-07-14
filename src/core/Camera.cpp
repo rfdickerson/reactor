@@ -1,11 +1,6 @@
-//
-// Created by rfdic on 7/7/2025.
-//
-
 #include "Camera.hpp"
 
 #include <glm/ext/matrix_clip_space.hpp>
-#include <spdlog/spdlog.h>
 
 namespace reactor {
 

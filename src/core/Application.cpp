@@ -33,9 +33,9 @@ void Application::initialize() {
     m_renderer = std::make_unique<VulkanRenderer>(config, *m_window, *m_camera);
 }
 
-void Application::run() {
+void Application::run() const {
     while (!m_window->shouldClose()) {
-        m_window->pollEvents();
+        Window::pollEvents();
         m_renderer->drawFrame();
     }
 }

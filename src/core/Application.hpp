@@ -14,7 +14,16 @@ public:
     Application();
     ~Application();
 
-    void run();
+    // Prevent copying
+    Application(const Application&) = delete;
+    Application& operator=(const Application&) = delete;
+
+    // Allow moving if needed
+    Application(Application&&) = default;
+    Application& operator=(Application&&) = default;
+
+    // Runs the main application loop. Returns program exit code.
+    void run() const;
 
 private:
     void initialize();
