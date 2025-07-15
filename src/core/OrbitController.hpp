@@ -31,7 +31,7 @@ private:
     void updatePan(float dx, float dy);
 
     static constexpr float ROTATE_SPEED = 0.01f;
-    static constexpr float PAN_SPEED = 0.002f;
+    static constexpr float PAN_SPEED = 0.0005f;
     static constexpr float ZOOM_SPEED = 0.5f;
     static constexpr float MIN_DISTANCE = 0.1f;
     static constexpr float MAX_DISTANCE = 50.0f;

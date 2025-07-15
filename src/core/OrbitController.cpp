@@ -73,7 +73,8 @@ void OrbitController::updateCamera() {
  }
 
 void OrbitController::updatePan(float dx, float dy) {
-     const float speed = m_distance * PAN_SPEED;                           
+     const float fovScale = std::tan(glm::radians(m_camera.getFOV() / 2.0f));
+     const float speed = (m_distance * fovScale * PAN_SPEED);
 
      // get camera facing direction
      const glm::vec3 position = m_camera.getPosition();
