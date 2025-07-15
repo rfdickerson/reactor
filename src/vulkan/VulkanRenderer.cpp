@@ -102,7 +102,7 @@ void VulkanRenderer::handleSwapchainResizing() {
     }
 }
 
-void VulkanRenderer::setupUI() { m_imgui = std::make_unique<Imgui>(*m_context, m_window); }
+void VulkanRenderer::setupUI() { m_imgui = std::make_unique<Imgui>(*m_context, m_window, m_window.getEventManager()); }
 
 VulkanRenderer::~VulkanRenderer() {
 
