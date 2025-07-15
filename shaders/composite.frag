@@ -70,7 +70,7 @@ void main() {
     finalColor = mix(grayscale, finalColor, uSaturation);
 
     // Mix the final scene color with the fog color
-    finalColor = mix(finalColor, fogColor, fogFactor);
+    //finalColor = mix(finalColor, fogColor, fogFactor);
 
     outColor = vec4(finalColor, 1.0);
 }

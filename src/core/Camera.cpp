@@ -4,7 +4,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtx/euler_angles.hpp>
-
+#include <glm/gtx/quaternion.hpp>
+#include <stdexcept>
 
 namespace reactor {
 
@@ -21,6 +22,9 @@ void Camera::setProjectionType(ProjectionType type) {
 }
 
 void Camera::setPerspective(float fov, float aspect, float near, float far) {
+    if (fov <= 0.0f || fov >= 180.0f || aspect <= 0.0f || near <= 0.0f || far <= 0.0f) {
+        throw std::invalid_argument("Invalid camera parameters");
+    }
     m_fov = fov;
     m_aspect = aspect;
     m_near = near;
@@ -35,38 +39,46 @@ void Camera::setPosition(const glm::vec3& position) {
 }
 
 void Camera::setTarget(const glm::vec3& target) {
-    m_target = target;
+    glm::vec3 direction = glm::normalize(target - m_position);
+    m_orientation = glm::quatLookAt(direction, m_up);
     m_viewDirty = true;
 }
 
 void Camera::setUp(const glm::vec3& up) {
-    m_up = up;
+    m_up = glm::normalize(up);
     m_viewDirty = true;
 }
 
 void Camera::lookAt(const glm::vec3& eye, const glm::vec3& target, const glm::vec3& up) {
     m_position = eye;
-    m_target = target;
-    m_up = up;
+    setTarget(target);
+    m_up = normalize(up);
     m_viewDirty = true;
 }
 
 void Camera::move(const glm::vec3& delta) {
     m_position += delta;
-    m_target += delta;
     m_viewDirty = true;
 }
 
+void Camera::moveRelative(const glm::vec3 &delta) {
+    m_position += getRight() * delta.x + getUp() * delta.y + getForward() * delta.z;
+    m_viewDirty = true;
+}
+
+
 void Camera::rotate(float yaw, float pitch, float roll) {
-    // This offers a very simple orbital rotation around the target point for demonstration.
-    // For proper FPS/third-person/free camera, this should be replaced with a full quaternion-based approach.
+    glm::quat qYaw = glm::angleAxis(glm::radians(yaw), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::quat qPitch = glm::angleAxis(glm::radians(pitch), getRight());
+    glm::quat qRoll = glm::angleAxis(glm::radians(roll), getForward());
+    m_orientation = glm::normalize(qYaw * m_orientation * qPitch * qRoll);
+    m_up = getUp();
+    m_viewDirty = true;
+}
 
-    glm::vec3 dir = m_target - m_position;
-    glm::mat4 rot = glm::eulerAngleYXZ(glm::radians(yaw), glm::radians(pitch), glm::radians(roll));
-
-    dir = glm::vec3(rot * glm::vec4(dir, 0.0f));
-    m_position = m_target - dir;
-    m_up = glm::vec3(rot * glm::vec4(m_up, 0.0f));
+void Camera::dolly(float distance) {
+    glm::vec3 direction = getForward();
+    m_position += direction * distance;
     m_viewDirty = true;
 }
 
@@ -90,9 +102,30 @@ glm::vec3 Camera::getPosition() const {
     return m_position;
 }
 
+glm::vec3 Camera::getTarget() const {
+    return m_position + getForward();
+}
+
+glm::vec3 Camera::getForward() const {
+    return glm::vec3(m_orientation * glm::vec3(0.0f, 0.0f, -1.0f));
+}
+
+glm::vec3 Camera::getRight() const {
+    return glm::vec3(m_orientation * glm::vec3(1.0f, 0.0f, 0.0f));
+}
+
+glm::vec3 Camera::getUp() const {
+    return glm::normalize(m_orientation * glm::vec3(0.0f, 1.0f, 0.0f));
+}
+
+float Camera::getDistanceToTarget() const {
+    return 1.0;
+}
 
 void Camera::updateView() {
-    m_view = glm::lookAt(m_position, m_target, m_up);
+    glm::mat4 rotation = glm::toMat4(glm::conjugate(m_orientation));
+    glm::mat4 translation = glm::translate(glm::mat4(1.0f), -m_position);
+    m_view = rotation * translation;
     m_viewDirty = false;
 }
 

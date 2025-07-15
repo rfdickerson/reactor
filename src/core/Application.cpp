@@ -14,6 +14,7 @@ void Application::initialize() {
     m_window = std::make_unique<Window>(1280, 720, "Reactor", *m_eventManager);
     m_camera = std::make_unique<Camera>();
     m_orbitController = std::make_unique<OrbitController>(*m_camera);
+    m_orbitController->setSimCityView(20.0f, 45.0f);
 
     // subscribe controller to input events.
     m_eventManager->subscribe(EventType::MouseMoved, m_orbitController.get());
