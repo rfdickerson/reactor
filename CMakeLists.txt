@@ -55,7 +55,8 @@ add_executable(Reactor src/core/main.cpp
         src/core/OrbitController.cpp
         src/core/OrbitController.hpp
         src/core/Application.cpp
-        src/core/Application.hpp)
+        src/core/Application.hpp
+        src/vulkan/Vertex.hpp)
 
 target_link_libraries(Reactor PRIVATE Vulkan::Vulkan Vulkan::Headers glfw fmt::fmt spdlog::spdlog GPUOpen::VulkanMemoryAllocator glm::glm)
 target_link_libraries(Reactor PRIVATE imgui::imgui)
