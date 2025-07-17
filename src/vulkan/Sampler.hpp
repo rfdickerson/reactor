@@ -2,20 +2,23 @@
 
 #include <vulkan/vulkan.hpp>
 
-namespace reactor {
+namespace reactor
+{
 
-class Sampler {
+class Sampler
+{
 public:
     Sampler(vk::Device device, const vk::SamplerCreateInfo& createInfo);
     ~Sampler();
 
-    [[nodiscard]] vk::Sampler get() const { return m_sampler; }
+    [[nodiscard]] vk::Sampler get() const
+    {
+        return m_sampler;
+    }
 
 private:
     vk::Device m_device;
     vk::Sampler m_sampler;
-
 };
 
-} // reactor
-
+} // namespace reactor

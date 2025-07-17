@@ -13,7 +13,7 @@ namespace reactor {
 
 class Imgui {
 public:
-    Imgui(VulkanContext& vulkanContext, Window& window);
+    Imgui(VulkanContext& vulkanContext, Window& window, EventManager& eventManager);
     ~Imgui();
 
     void createFrame();
@@ -29,6 +29,7 @@ public:
 private:
 
     vk::Device m_device;
+    EventManager& m_eventManager;
     vk::DescriptorPool m_descriptorPool;
 
     vk::DescriptorSet m_sceneImguiId;
