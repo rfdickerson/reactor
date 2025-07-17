@@ -498,97 +498,51 @@ void VulkanRenderer::createMSAAImage()
 
 void VulkanRenderer::createResolveImages()
 {
-    vk::Format format = vk::Format::eR16G16B16A16Sfloat; // Match your swapchain/attachment format
-    vk::Extent2D extent = m_swapchain->getExtent();
-
+    vk::Format format = vk::Format::eR16G16B16A16Sfloat;
+    vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst;
     size_t framesInFlight = m_frameManager->getFramesInFlightCount();
+
+    utils::ImageBuilder builder(m_context->device(), *m_allocator, m_swapchain->getExtent());
     m_resolveImages.resize(framesInFlight);
     m_resolveViews.resize(framesInFlight);
 
-    for (size_t i = 0; i < framesInFlight; ++i)
-    {
-        vk::ImageCreateInfo imageInfo{};
-        imageInfo.imageType = vk::ImageType::e2D;
-        imageInfo.extent.width = extent.width;
-        imageInfo.extent.height = extent.height;
-        imageInfo.extent.depth = 1;
-        imageInfo.mipLevels = 1;
-        imageInfo.arrayLayers = 1;
-        imageInfo.format = format;
-        imageInfo.tiling = vk::ImageTiling::eOptimal;
-        imageInfo.initialLayout = vk::ImageLayout::eUndefined;
-        imageInfo.usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst;
-        imageInfo.samples = vk::SampleCountFlagBits::e1; // Resolve is NOT multisampled!
-        imageInfo.sharingMode = vk::SharingMode::eExclusive;
+    for (size_t i = 0; i < framesInFlight; ++i) {
+        auto built = builder.setFormat(format)
+                            .setUsage(usage)
+                            .build();  // Defaults to e1 samples
 
-        // Create the Image (assume you have your own Image wrapper e.g. using VMA)
-        m_resolveImages[i] =
-            std::make_unique<Image>(*m_allocator, imageInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+        m_resolveImages[i] = std::move(built.image);
+        m_resolveViews[i] = built.view;
 
         m_imageStateTracker.recordState(m_resolveImages[i]->get(), vk::ImageLayout::eUndefined);
-
-        vk::ImageViewCreateInfo viewInfo{};
-        viewInfo.image = m_resolveImages[i]->get();
-        viewInfo.viewType = vk::ImageViewType::e2D;
-        viewInfo.format = format;
-        viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-        viewInfo.subresourceRange.baseMipLevel = 0;
-        viewInfo.subresourceRange.levelCount = 1;
-        viewInfo.subresourceRange.baseArrayLayer = 0;
-        viewInfo.subresourceRange.layerCount = 1;
-
-        m_resolveViews[i] = m_context->device().createImageView(viewInfo);
     }
 }
 void VulkanRenderer::createSceneViewImages()
 {
     vk::Format format = m_swapchain->getFormat();
-    vk::Extent2D extent = m_swapchain->getExtent();
-
+    vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferSrc;
     size_t framesInFlight = m_frameManager->getFramesInFlightCount();
 
-    // destroy old resources if recreating
-    for (size_t i = 0; i < m_sceneViewViews.size(); ++i)
-    {
+    // Destroy old resources if recreating
+    for (size_t i = 0; i < m_sceneViewViews.size(); ++i) {
         m_context->device().destroyImageView(m_sceneViewViews[i]);
     }
     m_sceneViewImages.clear();
     m_sceneViewViews.clear();
 
+    utils::ImageBuilder builder(m_context->device(), *m_allocator, m_swapchain->getExtent());
     m_sceneViewImages.resize(framesInFlight);
     m_sceneViewViews.resize(framesInFlight);
 
-    for (size_t i = 0; i < framesInFlight; ++i)
-    {
-        vk::ImageCreateInfo imageInfo{};
-        imageInfo.imageType = vk::ImageType::e2D;
-        imageInfo.extent.width = extent.width;
-        imageInfo.extent.height = extent.height;
-        imageInfo.extent.depth = 1;
-        imageInfo.mipLevels = 1;
-        imageInfo.arrayLayers = 1;
-        imageInfo.format = format;
-        imageInfo.tiling = vk::ImageTiling::eOptimal;
-        imageInfo.initialLayout = vk::ImageLayout::eUndefined;
-        imageInfo.usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferSrc;
-        imageInfo.samples = vk::SampleCountFlagBits::e1;
-        imageInfo.sharingMode = vk::SharingMode::eExclusive;
+    for (size_t i = 0; i < framesInFlight; ++i) {
+        auto built = builder.setFormat(format)
+                            .setUsage(usage)
+                            .build();  // Defaults to e1 samples and color aspect
 
-        m_sceneViewImages[i] = std::make_unique<Image>(*m_allocator, imageInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+        m_sceneViewImages[i] = std::move(built.image);
+        m_sceneViewViews[i] = built.view;
 
         m_imageStateTracker.recordState(m_sceneViewImages[i]->get(), vk::ImageLayout::eUndefined);
-
-        vk::ImageViewCreateInfo viewInfo{};
-        viewInfo.image = m_sceneViewImages[i]->get();
-        viewInfo.viewType = vk::ImageViewType::e2D;
-        viewInfo.format = format;
-        viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-        viewInfo.subresourceRange.baseMipLevel = 0;
-        viewInfo.subresourceRange.levelCount = 1;
-        viewInfo.subresourceRange.baseArrayLayer = 0;
-        viewInfo.subresourceRange.layerCount = 1;
-
-        m_sceneViewViews[i] = m_context->device().createImageView(viewInfo);
     }
 }
 
@@ -625,51 +579,32 @@ void VulkanRenderer::createDescriptorSets()
 }
 void VulkanRenderer::createDepthImages()
 {
-    vk::Format format = vk::Format::eD32Sfloat; // Common depth format
-    vk::Extent2D extent = m_swapchain->getExtent();
+    vk::Format format = vk::Format::eD32Sfloat;
+    vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled;
     size_t framesInFlight = m_frameManager->getFramesInFlightCount();
 
-    for (size_t i = 0; i < m_depthImages.size(); ++i)
-    {
+    // Destroy old resources if recreating
+    for (size_t i = 0; i < m_depthViews.size(); ++i) {
         m_context->device().destroyImageView(m_depthViews[i]);
     }
     m_depthImages.clear();
     m_depthViews.clear();
 
+    utils::ImageBuilder builder(m_context->device(), *m_allocator, m_swapchain->getExtent());
     m_depthImages.resize(framesInFlight);
     m_depthViews.resize(framesInFlight);
-    for (size_t i = 0; i < framesInFlight; ++i)
-    {
-        vk::ImageCreateInfo imageInfo{};
-        imageInfo.imageType = vk::ImageType::e2D;
-        imageInfo.extent.width = extent.width;
-        imageInfo.extent.height = extent.height;
-        imageInfo.extent.depth = 1;
-        imageInfo.mipLevels = 1;
-        imageInfo.arrayLayers = 1;
-        imageInfo.format = format;
-        imageInfo.tiling = vk::ImageTiling::eOptimal;
-        imageInfo.initialLayout = vk::ImageLayout::eUndefined;
-        imageInfo.usage =
-            vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled;
-        imageInfo.samples = vk::SampleCountFlagBits::e4;
-        imageInfo.sharingMode = vk::SharingMode::eExclusive;
 
-        m_depthImages[i] =
-            std::make_unique<Image>(*m_allocator, imageInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+    for (size_t i = 0; i < framesInFlight; ++i) {
+        auto built = builder.setFormat(format)
+                            .setUsage(usage)
+                            .setSamples(vk::SampleCountFlagBits::e4)
+                            .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                            .build();
+
+        m_depthImages[i] = std::move(built.image);
+        m_depthViews[i] = built.view;
+
         m_imageStateTracker.recordState(m_depthImages[i]->get(), vk::ImageLayout::eUndefined);
-
-        vk::ImageViewCreateInfo viewInfo{};
-        viewInfo.image = m_depthImages[i]->get();
-        viewInfo.viewType = vk::ImageViewType::e2D;
-        viewInfo.format = format;
-        viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
-        viewInfo.subresourceRange.baseMipLevel = 0;
-        viewInfo.subresourceRange.levelCount = 1;
-        viewInfo.subresourceRange.baseArrayLayer = 0;
-        viewInfo.subresourceRange.layerCount = 1;
-
-        m_depthViews[i] = m_context->device().createImageView(viewInfo);
     }
 }
 void VulkanRenderer::createDepthPipelineAndDescriptorSets()
