@@ -2,6 +2,7 @@
 
 #include "../core/Uniforms.hpp"
 #include "../core/Window.hpp"
+#include "ImageUtils.hpp"
 #include "VulkanUtils.hpp"
 
 #include <glm/glm.hpp>
@@ -472,51 +473,26 @@ void VulkanRenderer::drawFrame()
 
 void VulkanRenderer::createMSAAImage()
 {
-    vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e4;
-
-    // set format to HDR capable space
     vk::Format format = vk::Format::eR16G16B16A16Sfloat;
-    ;
-    constexpr vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eInputAttachment | vk::ImageUsageFlagBits::eTransferSrc;
-
-    vk::ImageCreateInfo imageInfo{};
-    imageInfo.imageType = vk::ImageType::e2D;
-    imageInfo.extent.width = m_swapchain->getExtent().width;
-    imageInfo.extent.height = m_swapchain->getExtent().height;
-    imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 1;
-    imageInfo.format = format;
-    imageInfo.tiling = vk::ImageTiling::eOptimal;
-    imageInfo.initialLayout = vk::ImageLayout::eUndefined;
-    imageInfo.usage = usage;
-    imageInfo.samples = msaaSamples;
-    imageInfo.sharingMode = vk::SharingMode::eExclusive;
-
+    vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eColorAttachment
+                                | vk::ImageUsageFlagBits::eInputAttachment
+                                | vk::ImageUsageFlagBits::eTransferSrc;
     size_t framesInFlight = m_frameManager->getFramesInFlightCount();
 
+    utils::ImageBuilder builder(m_context->device(), *m_allocator, m_swapchain->getExtent());
     m_msaaImages.resize(framesInFlight);
     m_msaaColorViews.resize(framesInFlight);
 
     for (size_t i = 0; i < framesInFlight; ++i)
     {
-        // Create the Image object
-        m_msaaImages[i] =
-            std::make_unique<Image>(*m_allocator, imageInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+        auto built = builder.setFormat(format)
+            .setUsage(usage)
+            .setSamples(vk::SampleCountFlagBits::e4)
+            .build();
+        m_msaaImages[i] = std::move(built.image);
+        m_msaaColorViews[i] = built.view;
 
         m_imageStateTracker.recordState(m_msaaImages[i]->get(), vk::ImageLayout::eUndefined);
-
-        vk::ImageViewCreateInfo viewInfo{};
-        viewInfo.image = m_msaaImages[i]->get(); // Get the VkImage from your new Image object
-        viewInfo.viewType = vk::ImageViewType::e2D;
-        viewInfo.format = format;
-        viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-        viewInfo.subresourceRange.baseMipLevel = 0;
-        viewInfo.subresourceRange.levelCount = 1;
-        viewInfo.subresourceRange.baseArrayLayer = 0;
-        viewInfo.subresourceRange.layerCount = 1;
-
-        m_msaaColorViews[i] = m_context->device().createImageView(viewInfo);
     }
 }
 
