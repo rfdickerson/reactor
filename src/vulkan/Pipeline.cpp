@@ -81,6 +81,13 @@ namespace reactor
         return *this;
     }
 
+    Pipeline::Builder& Pipeline::Builder::addPushContantRange(vk::ShaderStageFlags stages, uint32_t offset, uint32_t size)
+    {
+        m_pushRanges.push_back({stages, offset, size});
+        return *this;
+    }
+
+
     std::unique_ptr<Pipeline> Pipeline::Builder::build() const
     {
         // 1. Shader Stages
@@ -100,6 +107,10 @@ namespace reactor
 
         // 2. Vertex Input
         vk::PipelineVertexInputStateCreateInfo vertexInputInfo{};
+        vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(m_bindings.size());
+        vertexInputInfo.pVertexBindingDescriptions = m_bindings.data();
+        vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(m_attributes.size());
+        vertexInputInfo.pVertexAttributeDescriptions = m_attributes.data();
 
         // 3. Input Assembly
         vk::PipelineInputAssemblyStateCreateInfo inputAssembly({}, vk::PrimitiveTopology::eTriangleList, VK_FALSE);
@@ -142,6 +153,8 @@ namespace reactor
 
         // 10. Pipeline Layout
         vk::PipelineLayoutCreateInfo pipelineLayoutInfo({}, m_setLayouts);
+        pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(m_pushRanges.size());
+        pipelineLayoutInfo.pPushConstantRanges = m_pushRanges.data();
         vk::PipelineLayout pipelineLayout = m_device.createPipelineLayout(pipelineLayoutInfo);
 
         // 11. Dynamic Rendering Info

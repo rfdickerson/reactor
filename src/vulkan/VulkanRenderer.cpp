@@ -30,12 +30,13 @@ VulkanRenderer::VulkanRenderer(const RendererConfig& config, Window& window, Cam
     createSampler();
     createDescriptorSets();
     createDepthPipelineAndDescriptorSets();
+    initScene();
 }
 
 void VulkanRenderer::createCoreVulkanObjects()
 {
     m_context = std::make_unique<VulkanContext>(m_window.getNativeWindow());
-    m_allocator = std::make_unique<Allocator>(m_context->physicalDevice(), m_context->device(), m_context->instance());
+    m_allocator = std::make_unique<Allocator>(m_context->physicalDevice(), m_context->device(), m_context->instance(), m_context->graphicsQueue(), m_context->queueFamilies().graphicsFamily.value());
 }
 
 void VulkanRenderer::createSwapchainAndFrameManager()
@@ -65,11 +66,13 @@ void VulkanRenderer::createPipelineAndDescriptors()
     m_pipeline = Pipeline::Builder(m_context->device())
                      .setVertexShader(m_config.vertShaderPath)
                      .setFragmentShader(m_config.fragShaderPath)
+                     .setVertexInputFromVertex()
                      .setColorAttachment(vk::Format::eR16G16B16A16Sfloat)
                      .setDepthAttachment(vk::Format::eD32Sfloat, true) // depth test and write
                      .setDescriptorSetLayouts(setLayouts)
                      .setMultisample(4)
                      .setFrontFace(vk::FrontFace::eClockwise) // Assuming standard winding order for cubes
+                     .addPushContantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4))
                      .build();
 
     const std::vector compositeBindings = {
@@ -138,8 +141,16 @@ void VulkanRenderer::bindDescriptorSets(vk::CommandBuffer cmd)
 
 void VulkanRenderer::drawGeometry(vk::CommandBuffer cmd)
 {
-    // cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline->get());
-    cmd.draw(36, 1, 0, 0);
+    for (const auto& obj : m_objects)
+    {
+        cmd.pushConstants(m_pipeline->getLayout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4), &obj.transform[0][0]);
+
+        vk::Buffer vbs[] = {obj.mesh->getVertexBuffer()};
+        vk::DeviceSize offsets[] = {0};
+        cmd.bindVertexBuffers(0, 1, vbs, offsets);
+        cmd.bindIndexBuffer(obj.mesh->getIndexBuffer(), 0, vk::IndexType::eUint32);
+        cmd.drawIndexed(obj.mesh->getIndexCount(), 1, 0, 0, 0);
+    }
 }
 
 void VulkanRenderer::renderUI(const vk::CommandBuffer cmd) const
@@ -486,9 +497,9 @@ void VulkanRenderer::createMSAAImage()
     for (size_t i = 0; i < framesInFlight; ++i)
     {
         auto built = builder.setFormat(format)
-            .setUsage(usage)
-            .setSamples(vk::SampleCountFlagBits::e4)
-            .build();
+                         .setUsage(usage)
+                         .setSamples(vk::SampleCountFlagBits::e4)
+                         .build();
         m_msaaImages[i] = std::move(built.image);
         m_msaaColorViews[i] = built.view;
 
@@ -506,10 +517,11 @@ void VulkanRenderer::createResolveImages()
     m_resolveImages.resize(framesInFlight);
     m_resolveViews.resize(framesInFlight);
 
-    for (size_t i = 0; i < framesInFlight; ++i) {
+    for (size_t i = 0; i < framesInFlight; ++i)
+    {
         auto built = builder.setFormat(format)
-                            .setUsage(usage)
-                            .build();  // Defaults to e1 samples
+                         .setUsage(usage)
+                         .build(); // Defaults to e1 samples
 
         m_resolveImages[i] = std::move(built.image);
         m_resolveViews[i] = built.view;
@@ -524,7 +536,8 @@ void VulkanRenderer::createSceneViewImages()
     size_t framesInFlight = m_frameManager->getFramesInFlightCount();
 
     // Destroy old resources if recreating
-    for (size_t i = 0; i < m_sceneViewViews.size(); ++i) {
+    for (size_t i = 0; i < m_sceneViewViews.size(); ++i)
+    {
         m_context->device().destroyImageView(m_sceneViewViews[i]);
     }
     m_sceneViewImages.clear();
@@ -534,10 +547,11 @@ void VulkanRenderer::createSceneViewImages()
     m_sceneViewImages.resize(framesInFlight);
     m_sceneViewViews.resize(framesInFlight);
 
-    for (size_t i = 0; i < framesInFlight; ++i) {
+    for (size_t i = 0; i < framesInFlight; ++i)
+    {
         auto built = builder.setFormat(format)
-                            .setUsage(usage)
-                            .build();  // Defaults to e1 samples and color aspect
+                         .setUsage(usage)
+                         .build(); // Defaults to e1 samples and color aspect
 
         m_sceneViewImages[i] = std::move(built.image);
         m_sceneViewViews[i] = built.view;
@@ -584,7 +598,8 @@ void VulkanRenderer::createDepthImages()
     size_t framesInFlight = m_frameManager->getFramesInFlightCount();
 
     // Destroy old resources if recreating
-    for (size_t i = 0; i < m_depthViews.size(); ++i) {
+    for (size_t i = 0; i < m_depthViews.size(); ++i)
+    {
         m_context->device().destroyImageView(m_depthViews[i]);
     }
     m_depthImages.clear();
@@ -594,12 +609,13 @@ void VulkanRenderer::createDepthImages()
     m_depthImages.resize(framesInFlight);
     m_depthViews.resize(framesInFlight);
 
-    for (size_t i = 0; i < framesInFlight; ++i) {
+    for (size_t i = 0; i < framesInFlight; ++i)
+    {
         auto built = builder.setFormat(format)
-                            .setUsage(usage)
-                            .setSamples(vk::SampleCountFlagBits::e4)
-                            .setAspectMask(vk::ImageAspectFlagBits::eDepth)
-                            .build();
+                         .setUsage(usage)
+                         .setSamples(vk::SampleCountFlagBits::e4)
+                         .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                         .build();
 
         m_depthImages[i] = std::move(built.image);
         m_depthViews[i] = built.view;
@@ -615,11 +631,32 @@ void VulkanRenderer::createDepthPipelineAndDescriptorSets()
     m_depthPipeline = Pipeline::Builder(m_context->device())
                           .setVertexShader(m_config.vertShaderPath)
                           // No fragment shader, we only want depth output
+                          .setVertexInputFromVertex()
                           .setDepthAttachment(vk::Format::eD32Sfloat, true) // depth test and write enabled
                           .setDescriptorSetLayouts(setLayouts)
                           .setMultisample(4)
                           .setFrontFace(vk::FrontFace::eClockwise) // Match main geometry pipeline
+                          .addPushContantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4))
                           .build();
+}
+
+void VulkanRenderer::initScene()
+{
+    auto planeVerts = generatePlaneVertices(10, 50.0f);
+    auto planeInds = generatePlaneIndices(10);
+    auto planeMesh = std::make_shared<Mesh>(*m_allocator, planeVerts, planeInds);
+    m_objects.push_back({planeMesh, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f))});
+
+    // Unit cube mesh (shared for buildings)
+    auto cubeVerts = generateUnitCubeVertices();
+    auto cubeInds = generateUnitCubeIndices();
+    auto cubeMesh = std::make_shared<Mesh>(*m_allocator, cubeVerts, cubeInds);
+
+    // Several buildings (example: 3 cuboids with different positions and scales)
+    m_objects.push_back({cubeMesh, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 2.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(4.0f, 4.0f, 4.0f))});   // Square building
+    m_objects.push_back({cubeMesh, glm::translate(glm::mat4(1.0f), glm::vec3(10.0f, 5.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(3.0f, 10.0f, 3.0f))}); // Tall thin
+    m_objects.push_back({cubeMesh, glm::translate(glm::mat4(1.0f), glm::vec3(-5.0f, 3.0f, 5.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(5.0f, 6.0f, 2.0f))});  // Wide short
+    // Add more as needed
 }
 
 } // namespace reactor

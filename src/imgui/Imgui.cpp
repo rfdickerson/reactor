@@ -126,53 +126,58 @@ void Imgui::ShowDockspace() {
 
 void Imgui::ShowSceneView() {
     ImGui::Begin("Scene View");
-    const ImVec2 size = ImGui::GetContentRegionAvail();
 
     if (m_sceneImguiId) {
-        const auto id =
-            reinterpret_cast<ImTextureID>(static_cast<VkDescriptorSet>(m_sceneImguiId));
 
-        ImGui::Image(
-            id,
-            size,
-            ImVec2(0, 1),
-            ImVec2(1, 0));
+        const ImVec2 size = ImGui::GetContentRegionAvail();
 
-        ImVec2 image_pos = ImGui::GetItemRectMin();
-        ImGui::SetCursorScreenPos(image_pos);
-        ImGui::InvisibleButton("scene_viewport", size);
+        if (size.x > 0.0f && size.y > 0.0f)
+        {
+            const auto id =
+                reinterpret_cast<ImTextureID>(static_cast<VkDescriptorSet>(m_sceneImguiId));
 
-        if (ImGui::IsItemHovered()) {
-            ImGuiIO& io = ImGui::GetIO();
-            // Post MouseMoved if position changed
-            if (io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f) {
-                Event e{};
-                e.type = EventType::MouseMoved;
-                e.mouseMove.x = static_cast<double>(io.MousePos.x);
-                e.mouseMove.y = static_cast<double>(io.MousePos.y);
-                m_eventManager.post(e);
-            }
+            ImGui::Image(
+                id,
+                size,
+                ImVec2(0, 1),
+                ImVec2(1, 0));
 
-            // Post button presses/releases for left (0), right (1), middle (2)
-            for (int btn = 0; btn < 3; ++btn) {
-                if (ImGui::IsMouseClicked(btn)) {
+            ImVec2 image_pos = ImGui::GetItemRectMin();
+            ImGui::SetCursorScreenPos(image_pos);
+            ImGui::InvisibleButton("scene_viewport", size);
+
+            if (ImGui::IsItemHovered()) {
+                ImGuiIO& io = ImGui::GetIO();
+                // Post MouseMoved if position changed
+                if (io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f) {
                     Event e{};
-                    e.type = EventType::MouseButtonPressed;
-                    e.mouseButton.button = btn;
-                    e.mouseButton.x = static_cast<double>(io.MousePos.x);
-                    e.mouseButton.y = static_cast<double>(io.MousePos.y);
+                    e.type = EventType::MouseMoved;
+                    e.mouseMove.x = static_cast<double>(io.MousePos.x);
+                    e.mouseMove.y = static_cast<double>(io.MousePos.y);
                     m_eventManager.post(e);
                 }
-                if (ImGui::IsMouseReleased(btn)) {
-                    Event e{};
-                    e.type = EventType::MouseButtonReleased;
-                    e.mouseButton.button = btn;
-                    e.mouseButton.x = static_cast<double>(io.MousePos.x);
-                    e.mouseButton.y = static_cast<double>(io.MousePos.y);
-                    m_eventManager.post(e);
-                }
-            }
 
+                // Post button presses/releases for left (0), right (1), middle (2)
+                for (int btn = 0; btn < 3; ++btn) {
+                    if (ImGui::IsMouseClicked(btn)) {
+                        Event e{};
+                        e.type = EventType::MouseButtonPressed;
+                        e.mouseButton.button = btn;
+                        e.mouseButton.x = static_cast<double>(io.MousePos.x);
+                        e.mouseButton.y = static_cast<double>(io.MousePos.y);
+                        m_eventManager.post(e);
+                    }
+                    if (ImGui::IsMouseReleased(btn)) {
+                        Event e{};
+                        e.type = EventType::MouseButtonReleased;
+                        e.mouseButton.button = btn;
+                        e.mouseButton.x = static_cast<double>(io.MousePos.x);
+                        e.mouseButton.y = static_cast<double>(io.MousePos.y);
+                        m_eventManager.post(e);
+                    }
+                }
+
+            }
         }
     } else {
         ImGui::Text("No scene image");

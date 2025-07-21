@@ -4,7 +4,7 @@ BasedOnStyle: LLVM
 IndentWidth: 4
 TabWidth: 4
 UseTab: Never
-ColumnLimit: 0  # No forced wrapping; useful for long VulkanHpp calls
+ColumnLimit: 120  # No forced wrapping; useful for long VulkanHpp calls
 AccessModifierOffset: -4
 AlignAfterOpenBracket: Align
 AlignConsecutiveAssignments: false

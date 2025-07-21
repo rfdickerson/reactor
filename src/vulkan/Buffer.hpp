@@ -18,7 +18,7 @@ public:
     Buffer(const Buffer&) = delete;
     Buffer& operator=(const Buffer&) = delete;
 
-    [[nodiscard]] vk::Buffer buffer() const { return m_buffer; }
+    [[nodiscard]] vk::Buffer getHandle() const { return m_buffer; }
     [[nodiscard]] VmaAllocation allocation() const { return m_allocation; }
     [[nodiscard]] vk::DeviceSize size() const { return m_size; }
 

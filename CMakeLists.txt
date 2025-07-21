@@ -58,7 +58,11 @@ add_executable(Reactor src/core/main.cpp
         src/core/Application.hpp
         src/vulkan/Vertex.hpp
         src/vulkan/ImageUtils.hpp
-        src/vulkan/ImageUtils.cpp)
+        src/vulkan/ImageUtils.cpp
+        src/vulkan/Mesh.cpp
+        src/vulkan/Mesh.hpp
+        src/vulkan/MeshGenerators.hpp
+        src/vulkan/MeshGenerators.cpp)
 
 target_link_libraries(Reactor PRIVATE Vulkan::Vulkan Vulkan::Headers glfw fmt::fmt spdlog::spdlog GPUOpen::VulkanMemoryAllocator glm::glm)
 target_link_libraries(Reactor PRIVATE imgui::imgui)

@@ -26,6 +26,7 @@ namespace reactor
             Builder& setMultisample(uint32_t samples);
             Builder& setCullMode(vk::CullModeFlags cullMode);
             Builder& setFrontFace(vk::FrontFace frontFace);
+            Builder& addPushContantRange(vk::ShaderStageFlags stages, uint32_t offset, uint32_t size);
 
             [[nodiscard]] std::unique_ptr<Pipeline> build() const;
 
@@ -43,6 +44,7 @@ namespace reactor
 
             std::vector<vk::VertexInputBindingDescription> m_bindings;
             std::vector<vk::VertexInputAttributeDescription> m_attributes;
+            std::vector<vk::PushConstantRange> m_pushRanges;
         };
 
         ~Pipeline();
