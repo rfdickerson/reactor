@@ -14,7 +14,7 @@ find_package(glm CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
 
-add_executable(Reactor src/core/main.cpp
+add_library(ReactorLib STATIC
         src/vulkan/VulkanContext.cpp
         src/vulkan/VulkanContext.hpp
         src/pch.hpp
@@ -66,10 +66,25 @@ add_executable(Reactor src/core/main.cpp
         src/vulkan/MeshGenerators.cpp
 )
 
-target_link_libraries(Reactor PRIVATE Vulkan::Vulkan Vulkan::Headers glfw fmt::fmt spdlog::spdlog GPUOpen::VulkanMemoryAllocator glm::glm)
-target_link_libraries(Reactor PRIVATE imgui::imgui)
+target_compile_definitions(ReactorLib PUBLIC GLM_ENABLE_EXPERIMENTAL)
 
-target_precompile_headers(Reactor PRIVATE src/pch.hpp)
+
+target_link_libraries(ReactorLib PUBLIC
+        Vulkan::Vulkan
+        Vulkan::Headers
+        glfw
+        fmt::fmt
+        spdlog::spdlog
+        GPUOpen::VulkanMemoryAllocator
+        glm::glm
+        imgui::imgui
+        assimp::assimp
+)
+
+target_precompile_headers(ReactorLib PRIVATE src/pch.hpp)
+
+add_executable(Editor src/core/main.cpp)
+target_link_libraries(Editor PRIVATE ReactorLib)
 
 add_executable(BuildModel src/tools/ModelBuilder.cpp)
-target_link_libraries(BuildModel assimp::assimp fmt::fmt spdlog::spdlog)
+target_link_libraries(BuildModel PRIVATE ReactorLib)
