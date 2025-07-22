@@ -1,9 +1,4 @@
-//
-// Created by Robert F. Dickerson on 6/8/25.
-//
-
-#ifndef PCH_HPP
-#define PCH_HPP
+#pragma once
 
 // Common standard library includes
 #include <iostream>
@@ -28,4 +23,4 @@
 #include <glm/gtx/quaternion.hpp>
 
 #include <assimp/Importer.hpp>
-#endif //PCH_HPP
+
