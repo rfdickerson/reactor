@@ -12,6 +12,7 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
+find_package(assimp CONFIG REQUIRED)
 
 add_executable(Reactor src/core/main.cpp
         src/vulkan/VulkanContext.cpp
@@ -62,9 +63,13 @@ add_executable(Reactor src/core/main.cpp
         src/vulkan/Mesh.cpp
         src/vulkan/Mesh.hpp
         src/vulkan/MeshGenerators.hpp
-        src/vulkan/MeshGenerators.cpp)
+        src/vulkan/MeshGenerators.cpp
+)
 
 target_link_libraries(Reactor PRIVATE Vulkan::Vulkan Vulkan::Headers glfw fmt::fmt spdlog::spdlog GPUOpen::VulkanMemoryAllocator glm::glm)
 target_link_libraries(Reactor PRIVATE imgui::imgui)
 
 target_precompile_headers(Reactor PRIVATE src/pch.hpp)
+
+add_executable(BuildModel src/tools/ModelBuilder.cpp)
+target_link_libraries(BuildModel assimp::assimp fmt::fmt spdlog::spdlog)
