@@ -4,6 +4,7 @@
 #include "../core/Window.hpp"
 #include "ImageUtils.hpp"
 #include "VulkanUtils.hpp"
+#include "../core/ModelIO.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -647,16 +648,17 @@ void VulkanRenderer::initScene()
     auto planeMesh = std::make_shared<Mesh>(*m_allocator, planeVerts, planeInds);
     m_objects.push_back({planeMesh, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f))});
 
-    // Unit cube mesh (shared for buildings)
-    auto cubeVerts = generateUnitCubeVertices();
-    auto cubeInds = generateUnitCubeIndices();
-    auto cubeMesh = std::make_shared<Mesh>(*m_allocator, cubeVerts, cubeInds);
+    auto meshDataVec = loadModelFromBinary("monkey.mesh");
 
-    // Several buildings (example: 3 cuboids with different positions and scales)
-    m_objects.push_back({cubeMesh, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 2.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(4.0f, 4.0f, 4.0f))});   // Square building
-    m_objects.push_back({cubeMesh, glm::translate(glm::mat4(1.0f), glm::vec3(10.0f, 5.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(3.0f, 10.0f, 3.0f))}); // Tall thin
-    m_objects.push_back({cubeMesh, glm::translate(glm::mat4(1.0f), glm::vec3(-5.0f, 3.0f, 5.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(5.0f, 6.0f, 2.0f))});  // Wide short
-    // Add more as needed
+    if (!meshDataVec.empty()) {
+        const auto& meshData = meshDataVec[0]; // Use the first mesh for monkey
+        auto monkeyMesh = std::make_shared<Mesh>(
+            *m_allocator, meshData.vertices, meshData.indices
+        );
+        m_objects.push_back(RenderObject{monkeyMesh});
+    }
+
+
 }
 
 } // namespace reactor
