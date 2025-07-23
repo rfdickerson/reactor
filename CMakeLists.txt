@@ -64,6 +64,8 @@ add_library(ReactorLib STATIC
         src/vulkan/Mesh.hpp
         src/vulkan/MeshGenerators.hpp
         src/vulkan/MeshGenerators.cpp
+        src/core/ModelIO.hpp
+        src/core/ModelIO.cpp
 )
 
 target_compile_definitions(ReactorLib PUBLIC GLM_ENABLE_EXPERIMENTAL)

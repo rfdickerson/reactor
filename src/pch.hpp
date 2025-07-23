@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include <unordered_set>
+#include <fstream>
 
 #include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
