@@ -21,6 +21,7 @@ VulkanRenderer::VulkanRenderer(const RendererConfig& config, Window& window, Cam
     m_uniformManager = std::make_unique<UniformManager>(*m_allocator, m_frameManager->getFramesInFlightCount());
     m_uniformManager->registerUBO<SceneUBO>("scene");
     m_uniformManager->registerUBO<CompositeUBO>("composite");
+    m_uniformManager->registerUBO<DirectionalLightUBO>("lighting");
 
     createPipelineAndDescriptors();
     setupUI();
@@ -60,6 +61,8 @@ void VulkanRenderer::createPipelineAndDescriptors()
 
     const std::vector bindings = {
         vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex),
+        vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment)
+
     };
     m_descriptorSet = std::make_unique<DescriptorSet>(m_context->device(), 2, bindings);
     const std::vector setLayouts = {m_descriptorSet->getLayout()};
@@ -266,9 +269,15 @@ void VulkanRenderer::drawFrame()
     ubo.view = m_camera.getViewMatrix();
     ubo.projection = m_camera.getProjectionMatrix();
 
+    m_uniformManager->update<DirectionalLightUBO>(frameIdx, m_light);
+
     m_uniformManager->update<SceneUBO>(frameIdx, ubo);
 
+    // Get descriptor info for both UBOs
     vk::DescriptorBufferInfo sceneBufferInfo = m_uniformManager->getDescriptorInfo<SceneUBO>(frameIdx);
+    vk::DescriptorBufferInfo lightBufferInfo = m_uniformManager->getDescriptorInfo<DirectionalLightUBO>(frameIdx);
+
+    // Create write for Scene UBO at binding 0
     vk::WriteDescriptorSet sceneWrite{};
     sceneWrite.dstSet = m_descriptorSet->getCurrentSet(frameIdx);
     sceneWrite.dstBinding = 0;
@@ -276,7 +285,15 @@ void VulkanRenderer::drawFrame()
     sceneWrite.descriptorCount = 1;
     sceneWrite.pBufferInfo = &sceneBufferInfo;
 
-    m_descriptorSet->updateSet({sceneWrite});
+    // Create write for Light UBO at binding 1
+    vk::WriteDescriptorSet lightWrite{};
+    lightWrite.dstSet = m_descriptorSet->getCurrentSet(frameIdx);
+    lightWrite.dstBinding = 1; // Target binding 1
+    lightWrite.descriptorType = vk::DescriptorType::eUniformBuffer;
+    lightWrite.descriptorCount = 1;
+    lightWrite.pBufferInfo = &lightBufferInfo;
+
+    m_descriptorSet->updateSet({sceneWrite, lightWrite});
 
     beginCommandBuffer(cmd);
 

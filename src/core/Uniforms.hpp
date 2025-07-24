@@ -6,10 +6,11 @@ struct SceneUBO {
     glm::mat4 projection;
 };
 
-struct LightingUBO {
-    glm::vec4 lightPosition;
-    glm::vec4 lightColor;
-    float lightIntensity;
+struct DirectionalLightUBO
+{
+    glm::vec4 lightPosition = glm::vec4(-0.5f, 1.0f, -0.5f, 0.0f);
+    glm::vec4 lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    float lightIntensity = 1.0f;
 };
 
 struct CompositeUBO {

@@ -17,6 +17,7 @@
 #include "VulkanContext.hpp"
 #include "Mesh.hpp"
 #include "MeshGenerators.hpp"
+#include "../core/Uniforms.hpp"
 
 namespace reactor
 {
@@ -79,6 +80,7 @@ private:
     std::vector<vk::ImageView> m_depthViews;
     std::vector<vk::DescriptorSet> m_depthImageDescriptorSets;
 
+    DirectionalLightUBO m_light;
     std::vector<RenderObject> m_objects;
 
     void createCoreVulkanObjects();
