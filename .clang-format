@@ -1,23 +1,39 @@
-# .clang-format
+---
+Language: Cpp
 BasedOnStyle: LLVM
 IndentWidth: 4
 TabWidth: 4
 UseTab: Never
-
-# Don’t indent contents of namespaces
-NamespaceIndentation: None
-
-# Align consecutive assignments
-AlignConsecutiveAssignments: true
-
-# Optionally align declarations too (if you like the visual symmetry)
-AlignConsecutiveDeclarations: true
-
-# Keep parameters and arguments aligned (can be visually helpful)
+ColumnLimit: 120  # No forced wrapping; useful for long VulkanHpp calls
+AccessModifierOffset: -4
 AlignAfterOpenBracket: Align
-
-# Optional: control brace placement if you like a specific style
-BreakBeforeBraces: Attach
-
-# Optional: max line length
-ColumnLimit: 100
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AllowShortBlocksOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakTemplateDeclarations: Yes
+BinPackArguments: false
+BinPackParameters: false
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: true
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  BeforeCatch: true
+  BeforeElse: true
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+Cpp11BracedListStyle: true
+DerivePointerAlignment: false
+NamespaceIndentation: None
+PointerAlignment: Left
+SortIncludes: true
+IncludeBlocks: Preserve

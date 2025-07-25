@@ -12,7 +12,7 @@ namespace reactor {
         allocInfo.usage = memoryUsage;
 
         const VkResult result = vmaCreateImage(
-            m_allocator.get(),
+            m_allocator.getAllocator(),
             reinterpret_cast<const VkImageCreateInfo*>(&imageInfo),
             &allocInfo,
             reinterpret_cast<VkImage*>(&m_image),
@@ -59,7 +59,7 @@ namespace reactor {
 
     void Image::cleanup() {
         if (m_image && m_allocation) {
-            vmaDestroyImage(m_allocator.get(), m_image, m_allocation);
+            vmaDestroyImage(m_allocator.getAllocator(), m_image, m_allocation);
             spdlog::info("Image destroyed");
             m_image = VK_NULL_HANDLE;
             m_allocation = VK_NULL_HANDLE;

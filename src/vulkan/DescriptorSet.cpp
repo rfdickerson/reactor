@@ -41,7 +41,7 @@ namespace reactor {
 
     void DescriptorSet::updateUniformBuffer(size_t frame, const Buffer &buffer) {
         vk::DescriptorBufferInfo bufferInfo;
-        bufferInfo.buffer = buffer.buffer();
+        bufferInfo.buffer = buffer.getHandle();
         bufferInfo.offset = 0;
         bufferInfo.range = buffer.size();
 
