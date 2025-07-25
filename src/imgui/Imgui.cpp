@@ -191,6 +191,8 @@ void Imgui::ShowInspector() {
     ImGui::SliderFloat("Exposure", &m_exposure, 0.0, 2.0);
     ImGui::SliderFloat("Contrast", &m_contrast, 0.0, 2.0);
     ImGui::SliderFloat("Saturation", &m_saturation, 0.0, 2.0);
+
+    ImGui::SliderFloat("Fog Density", &m_fogDensity, 0.0, 0.5);
     ImGui::End();
 }
 

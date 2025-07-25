@@ -14,6 +14,7 @@ layout(set = 0, binding = 1) uniform CompositeParams {
     float uSaturation;  // Default: 1.0
     float uVignetteIntensity;   // Default: 0.5
     float uVignetteFalloff;     // Default 0.5
+    float uFogDensity;
 };
 
 // add camera projection uniforms to the UBO or pass them in another way
@@ -47,7 +48,8 @@ void main() {
         float fogEnd = 5.0;
         float viewDistance = linearizeDepth(depth);
         // Calculate fog amount (0.0 = no fog, 1.0 = full fog)
-        float fogFactor = smoothstep(fogStart, fogEnd, viewDistance);
+        //float fogFactor = smoothstep(fogStart, fogEnd, viewDistance);
+    float fogFactor = uFogDensity;
         // ----------------------
 
     // Sample the HDR input image
@@ -70,7 +72,7 @@ void main() {
     finalColor = mix(grayscale, finalColor, uSaturation);
 
     // Mix the final scene color with the fog color
-    //finalColor = mix(finalColor, fogColor, fogFactor);
+    finalColor = mix(finalColor, fogColor, fogFactor);
 
     outColor = vec4(finalColor, 1.0);
 }

@@ -69,7 +69,7 @@ add_library(ReactorLib STATIC
 )
 
 target_compile_definitions(ReactorLib PUBLIC GLM_ENABLE_EXPERIMENTAL)
-
+target_compile_definitions(ReactorLib PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
 
 target_link_libraries(ReactorLib PUBLIC
         Vulkan::Vulkan
