@@ -359,6 +359,47 @@ void VulkanRenderer::drawFrame()
     drawGeometry(cmd);
     endDynamicRendering(cmd);
 
+    // Shadow pass
+    // --- Prepare for Shadow Pass ---
+    // 1. Create the orthographic projection matrix for the directional light.
+    // This defines a "box" in space that will cast shadows.
+    // You can adjust these values to fit your scene's size.
+    const float orthoSize = 10.0f;
+    const float nearPlane = 0.1f;
+    const float farPlane = 100.0f;
+    glm::mat4 lightProjection = glm::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, nearPlane, farPlane);
+
+    // 2. Create the view matrix from the light's perspective.
+    // This uses the light's direction, which is already updated in your m_light UBO.
+    // We place the light "camera" at a position based on its direction and make it look at the scene origin.
+    glm::vec3 lightPosition = glm::vec3(15.0f, 15.0f, 5.0f);
+    glm::mat4 lightView = glm::lookAt(
+        lightPosition,             // Position of the light in world space
+        glm::vec3(0.0f, 0.0f, 0.0f), // The point the light is looking at (scene origin)
+        glm::vec3(0.0f, 1.0f, 0.0f)  // Up vector
+    );
+
+    // 3. Combine the matrices to create the final light-space matrix.
+    // Note: Vulkan's clip space has an inverted Y-axis. We need to add a correction.
+    glm::mat4 clipCorrection = {
+        1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f,-1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.5f, 0.5f,
+        0.0f, 0.0f, 0.0f, 1.0f
+    };
+
+    glm::mat4 lightSpaceMatrix = clipCorrection * lightProjection * lightView;
+
+    // 4. Set the matrix for the shadow mapping pass.
+    m_shadowMapping->setLightMatrix(lightSpaceMatrix, frameIdx);
+
+    //m_shadowMapping->setLightMatrix(lightMVP, frameIdx);
+    auto drawFunc = [this](vk::CommandBuffer cmd) {
+        this->drawGeometry(cmd);
+    };
+
+    m_shadowMapping->recordShadowPass(cmd, frameIdx, drawFunc);
+
     // --- 1. Geometry Pass ---
     // Transition the MSAA image so we can render the main scene into it.
     // Its layout was likely UNDEFINED (on first use) or TRANSFER_SRC (from previous frame's resolve).

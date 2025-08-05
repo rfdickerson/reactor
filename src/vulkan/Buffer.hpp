@@ -22,7 +22,8 @@ public:
     [[nodiscard]] VmaAllocation allocation() const { return m_allocation; }
     [[nodiscard]] vk::DeviceSize size() const { return m_size; }
 
-
+    void* map();
+    void unmap();
 
 private:
     Allocator& m_allocator;

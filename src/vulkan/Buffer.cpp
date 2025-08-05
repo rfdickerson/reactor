@@ -43,5 +43,15 @@ namespace reactor {
         }
     }
 
+void* Buffer::map() {
+    void* data;
+    vmaMapMemory(m_allocator.getAllocator(), m_allocation, &data);
+    return data;
+}
+
+void Buffer::unmap() {
+    vmaUnmapMemory(m_allocator.getAllocator(), m_allocation);
+}
+
 
 } // reactor

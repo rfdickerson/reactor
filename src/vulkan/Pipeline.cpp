@@ -87,6 +87,12 @@ namespace reactor
         return *this;
     }
 
+    Pipeline::Builder& Pipeline::Builder::enableDepthBias(bool enable)
+    {
+        m_depthBiasEnable = enable;
+        return *this;
+    }
+
 
     std::unique_ptr<Pipeline> Pipeline::Builder::build() const
     {
@@ -120,7 +126,7 @@ namespace reactor
 
         // 5. Rasterizer
         vk::PipelineRasterizationStateCreateInfo rasterizer(
-            {}, VK_FALSE, VK_FALSE, vk::PolygonMode::eFill, m_cullMode, m_frontFace, VK_FALSE, 0.0f, 0.0f, 0.0f, 1.0f);
+            {}, VK_FALSE, VK_FALSE, vk::PolygonMode::eFill, m_cullMode, m_frontFace, m_depthBiasEnable? VK_TRUE : VK_FALSE, 0.0f, 0.0f, 0.0f, 1.0f);
 
         // 6. Multisampling
         vk::PipelineMultisampleStateCreateInfo multisampling({}, utils::mapSampleCountFlag(m_samples), VK_FALSE);
@@ -149,6 +155,12 @@ namespace reactor
         // 9. Dynamic State
         std::vector<vk::DynamicState> dynamicStates = {vk::DynamicState::eViewport,
                                                        vk::DynamicState::eScissor};
+        // conditionally add eDepthBias to the list of dynamic states
+        if (m_depthBiasEnable)
+        {
+            dynamicStates.push_back(vk::DynamicState::eDepthBias);
+        }
+
         vk::PipelineDynamicStateCreateInfo dynamicState({}, dynamicStates);
 
         // 10. Pipeline Layout

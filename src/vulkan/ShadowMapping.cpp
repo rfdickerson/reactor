@@ -5,6 +5,12 @@
 namespace reactor
 {
 
+struct SceneUBO
+{
+    glm::mat4 view;
+    glm::mat4 projection;
+};
+
 ShadowMapping::ShadowMapping(VulkanRenderer& renderer, uint32_t resolution)
     : m_renderer(renderer), m_resolution(resolution), m_shadowMapView(VK_NULL_HANDLE),
       m_shadowMapSampler(VK_NULL_HANDLE)
@@ -76,7 +82,11 @@ void ShadowMapping::createResources()
     m_mvpBuffer.reserve(frameCount);
     for (size_t i = 0; i < frameCount; ++i)
     {
-        m_mvpBuffer.push_back(std::make_unique<Buffer>(m_renderer.allocator(), sizeof(glm::mat4), vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_AUTO, "MVP Buffer"));
+        m_mvpBuffer.push_back(std::make_unique<Buffer>(m_renderer.allocator(),
+                                                       sizeof(SceneUBO),
+                                                       vk::BufferUsageFlagBits::eUniformBuffer,
+                                                       VMA_MEMORY_USAGE_CPU_TO_GPU,
+                                                       "MVP Buffer"));
     }
 }
 
@@ -99,8 +109,10 @@ void ShadowMapping::createPipeline()
         // No fragment shader, we only want depth output
         .setVertexInputFromVertex()
         .setDepthAttachment(vk::Format::eD32Sfloat, true) // depth test and write enabled
+        .enableDepthBias()
         .setDescriptorSetLayouts(setLayouts)
-        .setMultisample(4)
+        .setMultisample(1)
+        .setCullMode(vk::CullModeFlagBits::eFront)
         .setFrontFace(vk::FrontFace::eClockwise) // Match main geometry pipeline
         .addPushContantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4));
 
@@ -115,7 +127,7 @@ void ShadowMapping::createDescriptors()
 
     // Descriptor set bindings: UBO for light's MVP
     std::vector<vk::DescriptorSetLayoutBinding> bindings = {
-        { 0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex }
+        {0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex}
         // Add more if you want—for example for a sampler or shadow map
     };
 
@@ -128,7 +140,7 @@ void ShadowMapping::createDescriptors()
         vk::DescriptorBufferInfo uboInfo{};
         uboInfo.buffer = m_mvpBuffer[i]->getHandle();
         uboInfo.offset = 0;
-        uboInfo.range = sizeof(glm::mat4);
+        uboInfo.range = sizeof(SceneUBO);
 
         vk::WriteDescriptorSet writes{};
         writes.dstSet = m_descriptors->get(i);
@@ -140,7 +152,76 @@ void ShadowMapping::createDescriptors()
 
         m_descriptors->updateSet({writes});
     }
+}
 
+void ShadowMapping::recordShadowPass(vk::CommandBuffer cmd,
+                                     size_t frameIndex,
+                                     const std::function<void(vk::CommandBuffer)>& drawCallback)
+{
+    vk::ClearValue clearDepth;
+    clearDepth.depthStencil = vk::ClearDepthStencilValue{1.0f, 0};
+
+    vk::RenderingAttachmentInfo depthAttachment{};
+    depthAttachment.imageView = m_shadowMapView;
+    depthAttachment.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+    depthAttachment.loadOp = vk::AttachmentLoadOp::eClear;
+    depthAttachment.storeOp = vk::AttachmentStoreOp::eStore;
+    depthAttachment.clearValue = clearDepth;
+
+    vk::RenderingInfo renderingInfo{};
+    renderingInfo.renderArea = vk::Rect2D({0, 0}, {m_resolution, m_resolution});
+    renderingInfo.layerCount = 1;
+    renderingInfo.pDepthAttachment = &depthAttachment;
+
+    cmd.setDepthBias(depthBiasConstant, 0.0f, depthBiasSlope);
+
+    cmd.beginRendering(&renderingInfo);
+
+    // set viewport/scissor
+    vk::Viewport viewport = {0.0f, 0.0f, (float)m_resolution, (float)m_resolution, 0.0f, 1.0f};
+    vk::Rect2D scissor = {vk::Offset2D{0, 0}, vk::Extent2D{m_resolution, m_resolution}};
+    cmd.setViewport(0, viewport);
+    cmd.setScissor(0, scissor);
+
+    cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_depthPassPipeline->get());
+
+    auto descriptor = m_descriptors->get(frameIndex);
+
+    // bind descriptor set (with light MVP)
+    cmd.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics, m_depthPassPipeline->getLayout(), 0, 1, &descriptor, 0, nullptr);
+
+    // draw the shadow casters
+    drawCallback(cmd);
+
+    cmd.endRendering();
+}
+
+vk::ImageView ShadowMapping::shadowMapView() const
+{
+    return m_shadowMapView;
+}
+
+vk::Sampler ShadowMapping::shadowMapSampler() const
+{
+    return m_shadowMapSampler;
+}
+
+vk::DescriptorSet ShadowMapping::shadowMapDescriptorSet(size_t frameIndex) const
+{
+    return m_descriptors->get(frameIndex);
+}
+
+void ShadowMapping::setLightMatrix(const glm::mat4& lightSpaceMatrix, size_t frameIndex)
+{
+    SceneUBO ubo;
+    ubo.view = glm::mat4(1.0f);
+    ubo.projection = lightSpaceMatrix;
+
+    // map buffer, copy matrix
+    void* data = m_mvpBuffer[frameIndex]->map();
+    memcpy(data, &ubo, sizeof(SceneUBO));
+    m_mvpBuffer[frameIndex]->unmap();
 }
 
 } // namespace reactor

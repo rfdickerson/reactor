@@ -18,7 +18,7 @@ public:
     explicit ShadowMapping(VulkanRenderer& renderer, uint32_t resolution = 2048);
     ~ShadowMapping();
 
-    void recordShadowPass(vk::CommandBuffer cmd, size_t frameIndex);
+    void recordShadowPass(vk::CommandBuffer cmd, size_t frameIndex, const std::function<void(vk::CommandBuffer)>& drawCallback);
 
     vk::ImageView shadowMapView() const;
     vk::Sampler shadowMapSampler() const;
@@ -35,6 +35,9 @@ private:
     void createResources();
     void createPipeline();
     void createDescriptors();
+
+    const float depthBiasConstant = 1.25f;
+    const float depthBiasSlope = 1.75f;
 
     VulkanRenderer& m_renderer;
     uint32_t m_resolution;

@@ -27,6 +27,7 @@ namespace reactor
             Builder& setCullMode(vk::CullModeFlags cullMode);
             Builder& setFrontFace(vk::FrontFace frontFace);
             Builder& addPushContantRange(vk::ShaderStageFlags stages, uint32_t offset, uint32_t size);
+            Builder& enableDepthBias(bool enable=true);
 
             [[nodiscard]] std::unique_ptr<Pipeline> build() const;
 
@@ -41,6 +42,7 @@ namespace reactor
             uint32_t m_samples = 1;
             vk::CullModeFlags m_cullMode = vk::CullModeFlagBits::eBack;
             vk::FrontFace m_frontFace = vk::FrontFace::eCounterClockwise;
+            bool m_depthBiasEnable = false;
 
             std::vector<vk::VertexInputBindingDescription> m_bindings;
             std::vector<vk::VertexInputAttributeDescription> m_attributes;
