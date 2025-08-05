@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "../core/Camera.hpp"
+#include "../core/Uniforms.hpp"
 #include "../core/Window.hpp"
 #include "../imgui/Imgui.hpp"
 #include "Allocator.hpp"
@@ -10,14 +11,14 @@
 #include "FrameManager.hpp"
 #include "Image.hpp"
 #include "ImageStateTracker.h"
+#include "Mesh.hpp"
+#include "MeshGenerators.hpp"
 #include "Pipeline.hpp"
 #include "Sampler.hpp"
+#include "ShadowMapping.hpp"
 #include "Swapchain.hpp"
 #include "UniformManager.hpp"
 #include "VulkanContext.hpp"
-#include "Mesh.hpp"
-#include "MeshGenerators.hpp"
-#include "../core/Uniforms.hpp"
 
 namespace reactor
 {
@@ -47,6 +48,10 @@ public:
 
     void drawFrame();
 
+    vk::Device device() const;
+    Allocator& allocator();
+    vk::DescriptorPool descriptorPool() const;
+
 private:
     const RendererConfig& m_config;
     Window& m_window;
@@ -64,6 +69,7 @@ private:
     std::unique_ptr<Sampler> m_sampler;
     std::unique_ptr<UniformManager> m_uniformManager;
     std::unique_ptr<Imgui> m_imgui;
+    std::unique_ptr<ShadowMapping> m_shadowMapping;
 
     ImageStateTracker m_imageStateTracker;
 
@@ -83,6 +89,8 @@ private:
     DirectionalLightUBO m_light;
     std::vector<RenderObject> m_objects;
 
+    vk::DescriptorPool m_descriptorPool;
+
     void createCoreVulkanObjects();
     void createSwapchainAndFrameManager();
     void createPipelineAndDescriptors();
@@ -95,6 +103,7 @@ private:
     void createDepthImages();
     void createDepthPipelineAndDescriptorSets();
     void initScene();
+    void createDescriptorPool();
 
     void handleSwapchainResizing();
     void beginCommandBuffer(vk::CommandBuffer cmd);

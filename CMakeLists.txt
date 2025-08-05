@@ -66,6 +66,8 @@ add_library(ReactorLib STATIC
         src/vulkan/MeshGenerators.cpp
         src/core/ModelIO.hpp
         src/core/ModelIO.cpp
+        src/vulkan/ShadowMapping.hpp
+        src/vulkan/ShadowMapping.cpp
 )
 
 target_compile_definitions(ReactorLib PUBLIC GLM_ENABLE_EXPERIMENTAL)

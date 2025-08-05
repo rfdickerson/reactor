@@ -1,10 +1,10 @@
 #include "VulkanRenderer.hpp"
 
+#include "../core/ModelIO.hpp"
 #include "../core/Uniforms.hpp"
 #include "../core/Window.hpp"
 #include "ImageUtils.hpp"
 #include "VulkanUtils.hpp"
-#include "../core/ModelIO.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -23,6 +23,7 @@ VulkanRenderer::VulkanRenderer(const RendererConfig& config, Window& window, Cam
     m_uniformManager->registerUBO<CompositeUBO>("composite");
     m_uniformManager->registerUBO<DirectionalLightUBO>("lighting");
 
+    createDescriptorPool();
     createPipelineAndDescriptors();
     setupUI();
     createMSAAImage();
@@ -33,17 +34,39 @@ VulkanRenderer::VulkanRenderer(const RendererConfig& config, Window& window, Cam
     createDescriptorSets();
     createDepthPipelineAndDescriptorSets();
     initScene();
+
+    m_shadowMapping = std::make_unique<ShadowMapping>(*this);
+}
+
+Allocator& VulkanRenderer::allocator()
+{
+    return *m_allocator;
+}
+
+vk::Device VulkanRenderer::device() const
+{
+    return m_context->device();
+}
+
+vk::DescriptorPool VulkanRenderer::descriptorPool() const
+{
+    return m_descriptorPool;
 }
 
 void VulkanRenderer::createCoreVulkanObjects()
 {
     m_context = std::make_unique<VulkanContext>(m_window.getNativeWindow());
-    m_allocator = std::make_unique<Allocator>(m_context->physicalDevice(), m_context->device(), m_context->instance(), m_context->graphicsQueue(), m_context->queueFamilies().graphicsFamily.value());
+    m_allocator = std::make_unique<Allocator>(m_context->physicalDevice(),
+                                              m_context->device(),
+                                              m_context->instance(),
+                                              m_context->graphicsQueue(),
+                                              m_context->queueFamilies().graphicsFamily.value());
 }
 
 void VulkanRenderer::createSwapchainAndFrameManager()
 {
-    m_swapchain = std::make_unique<Swapchain>(m_context->device(), m_context->physicalDevice(), m_context->surface(), m_window);
+    m_swapchain =
+        std::make_unique<Swapchain>(m_context->device(), m_context->physicalDevice(), m_context->surface(), m_window);
 
     uint32_t swapchainImageCount = m_swapchain->getImageViews().size();
     m_frameManager = std::make_unique<FrameManager>(m_context->device(), *m_allocator, 0, 2, swapchainImageCount);
@@ -53,6 +76,17 @@ void VulkanRenderer::createSwapchainAndFrameManager()
         m_imageStateTracker.recordState(image, vk::ImageLayout::eUndefined);
     }
 }
+
+void VulkanRenderer::createDescriptorPool()
+{
+    std::vector<vk::DescriptorPoolSize> poolSizes = {{vk::DescriptorType::eUniformBuffer, 32},
+                                                 {vk::DescriptorType::eCombinedImageSampler, 32}};
+
+    vk::DescriptorPoolCreateInfo poolInfo(vk::DescriptorPoolCreateFlags(), 128, poolSizes.size(), poolSizes.data());
+
+    m_descriptorPool = m_context->device().createDescriptorPool(poolInfo);
+}
+
 
 void VulkanRenderer::createPipelineAndDescriptors()
 {
@@ -64,7 +98,7 @@ void VulkanRenderer::createPipelineAndDescriptors()
         vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment)
 
     };
-    m_descriptorSet = std::make_unique<DescriptorSet>(m_context->device(), 2, bindings);
+    m_descriptorSet = std::make_unique<DescriptorSet>(m_context->device(), m_descriptorPool, 2, bindings);
     const std::vector setLayouts = {m_descriptorSet->getLayout()};
 
     m_pipeline = Pipeline::Builder(m_context->device())
@@ -80,12 +114,14 @@ void VulkanRenderer::createPipelineAndDescriptors()
                      .build();
 
     const std::vector compositeBindings = {
-        vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment),
+        vk::DescriptorSetLayoutBinding(
+            0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment),
         vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
-        vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment),
+        vk::DescriptorSetLayoutBinding(
+            2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment),
     };
 
-    m_compositeDescriptorSet = std::make_unique<DescriptorSet>(m_context->device(), 2, compositeBindings);
+    m_compositeDescriptorSet = std::make_unique<DescriptorSet>(m_context->device(), m_descriptorPool, 2, compositeBindings);
     std::vector compositeSetLayouts = {m_compositeDescriptorSet->getLayout()};
 
     m_compositePipeline = Pipeline::Builder(m_context->device())
@@ -131,6 +167,8 @@ VulkanRenderer::~VulkanRenderer()
         m_context->device().destroyImageView(m_sceneViewViews[i]);
         m_context->device().destroyImageView(m_depthViews[i]);
     }
+
+    m_context->device().destroyDescriptorPool(m_descriptorPool);
 }
 
 void VulkanRenderer::beginCommandBuffer(vk::CommandBuffer cmd)
@@ -140,14 +178,19 @@ void VulkanRenderer::beginCommandBuffer(vk::CommandBuffer cmd)
 
 void VulkanRenderer::bindDescriptorSets(vk::CommandBuffer cmd)
 {
-    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipeline->getLayout(), 0, m_descriptorSet->getCurrentSet(m_frameManager->getFrameIndex()), nullptr);
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                           m_pipeline->getLayout(),
+                           0,
+                           m_descriptorSet->getCurrentSet(m_frameManager->getFrameIndex()),
+                           nullptr);
 }
 
 void VulkanRenderer::drawGeometry(vk::CommandBuffer cmd)
 {
     for (const auto& obj : m_objects)
     {
-        cmd.pushConstants(m_pipeline->getLayout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4), &obj.transform[0][0]);
+        cmd.pushConstants(
+            m_pipeline->getLayout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4), &obj.transform[0][0]);
 
         vk::Buffer vbs[] = {obj.mesh->getVertexBuffer()};
         vk::DeviceSize offsets[] = {0};
@@ -178,13 +221,12 @@ void VulkanRenderer::submitAndPresent(uint32_t imageIndex)
     m_frameManager->endFrame(m_context->graphicsQueue(), m_context->presentQueue(), m_swapchain->get(), imageIndex);
 }
 
-void VulkanRenderer::beginDynamicRendering(
-    vk::CommandBuffer cmd,
-    vk::ImageView colorImageView,
-    vk::ImageView depthImageView,
-    vk::Extent2D extent,
-    bool clearColor = true,
-    bool clearDepth = false)
+void VulkanRenderer::beginDynamicRendering(vk::CommandBuffer cmd,
+                                           vk::ImageView colorImageView,
+                                           vk::ImageView depthImageView,
+                                           vk::Extent2D extent,
+                                           bool clearColor = true,
+                                           bool clearDepth = false)
 {
     vk::RenderingAttachmentInfo colorAttachment{};
     vk::RenderingAttachmentInfo depthAttachment{};
@@ -301,15 +343,14 @@ void VulkanRenderer::drawFrame()
     // get depth image view for this frame
     vk::ImageView depthView = m_depthViews[frameIdx];
 
-    m_imageStateTracker.transition(
-        cmd,
-        m_depthImages[frameIdx]->get(),
-        vk::ImageLayout::eDepthAttachmentOptimal,
-        vk::PipelineStageFlagBits::eTopOfPipe,
-        vk::PipelineStageFlagBits::eEarlyFragmentTests,
-        vk::AccessFlagBits::eNone,
-        vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-        vk::ImageAspectFlagBits::eDepth);
+    m_imageStateTracker.transition(cmd,
+                                   m_depthImages[frameIdx]->get(),
+                                   vk::ImageLayout::eDepthAttachmentOptimal,
+                                   vk::PipelineStageFlagBits::eTopOfPipe,
+                                   vk::PipelineStageFlagBits::eEarlyFragmentTests,
+                                   vk::AccessFlagBits::eNone,
+                                   vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+                                   vk::ImageAspectFlagBits::eDepth);
 
     beginDynamicRendering(cmd, nullptr, depthView, extent, false, true);
     utils::setupViewportAndScissor(cmd, extent);
@@ -321,14 +362,13 @@ void VulkanRenderer::drawFrame()
     // --- 1. Geometry Pass ---
     // Transition the MSAA image so we can render the main scene into it.
     // Its layout was likely UNDEFINED (on first use) or TRANSFER_SRC (from previous frame's resolve).
-    m_imageStateTracker.transition(
-        cmd,
-        msaaImage,
-        vk::ImageLayout::eColorAttachmentOptimal,
-        vk::PipelineStageFlagBits::eTopOfPipe,             // Source Stage
-        vk::PipelineStageFlagBits::eColorAttachmentOutput, // Destination Stage
-        {},                                                // Source Access
-        vk::AccessFlagBits::eColorAttachmentWrite          // Destination Access
+    m_imageStateTracker.transition(cmd,
+                                   msaaImage,
+                                   vk::ImageLayout::eColorAttachmentOptimal,
+                                   vk::PipelineStageFlagBits::eTopOfPipe,             // Source Stage
+                                   vk::PipelineStageFlagBits::eColorAttachmentOutput, // Destination Stage
+                                   {},                                                // Source Access
+                                   vk::AccessFlagBits::eColorAttachmentWrite          // Destination Access
     );
 
     beginDynamicRendering(cmd, msaaView, depthView, extent, true, false);
@@ -343,24 +383,22 @@ void VulkanRenderer::drawFrame()
     // vkCmdResolveImage requires the source to be TRANSFER_SRC and destination to be TRANSFER_DST.
 
     // Transition MSAA image from COLOR_ATTACHMENT to TRANSFER_SRC_OPTIMAL to be read by the resolve command.
-    m_imageStateTracker.transition(
-        cmd,
-        msaaImage,
-        vk::ImageLayout::eTransferSrcOptimal,
-        vk::PipelineStageFlagBits::eColorAttachmentOutput,
-        vk::PipelineStageFlagBits::eTransfer,
-        vk::AccessFlagBits::eColorAttachmentWrite,
-        vk::AccessFlagBits::eTransferRead);
+    m_imageStateTracker.transition(cmd,
+                                   msaaImage,
+                                   vk::ImageLayout::eTransferSrcOptimal,
+                                   vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                                   vk::PipelineStageFlagBits::eTransfer,
+                                   vk::AccessFlagBits::eColorAttachmentWrite,
+                                   vk::AccessFlagBits::eTransferRead);
 
     // Transition the Resolve image to TRANSFER_DST_OPTIMAL to be written to by the resolve command.
-    m_imageStateTracker.transition(
-        cmd,
-        resolveImage,
-        vk::ImageLayout::eTransferDstOptimal,
-        vk::PipelineStageFlagBits::eTopOfPipe,
-        vk::PipelineStageFlagBits::eTransfer,
-        {},
-        vk::AccessFlagBits::eTransferWrite);
+    m_imageStateTracker.transition(cmd,
+                                   resolveImage,
+                                   vk::ImageLayout::eTransferDstOptimal,
+                                   vk::PipelineStageFlagBits::eTopOfPipe,
+                                   vk::PipelineStageFlagBits::eTransfer,
+                                   {},
+                                   vk::AccessFlagBits::eTransferWrite);
 
     utils::resolveMSAAImageTo(cmd, msaaImage, resolveImage, width, height);
 
@@ -368,24 +406,22 @@ void VulkanRenderer::drawFrame()
     // This pass reads from the resolved image and writes to the swapchain image.
 
     // Transition the Resolve image from TRANSFER_DST to SHADER_READ_ONLY so it can be used as a texture.
-    m_imageStateTracker.transition(
-        cmd,
-        resolveImage,
-        vk::ImageLayout::eShaderReadOnlyOptimal,
-        vk::PipelineStageFlagBits::eTransfer,
-        vk::PipelineStageFlagBits::eFragmentShader,
-        vk::AccessFlagBits::eTransferWrite,
-        vk::AccessFlagBits::eShaderRead);
+    m_imageStateTracker.transition(cmd,
+                                   resolveImage,
+                                   vk::ImageLayout::eShaderReadOnlyOptimal,
+                                   vk::PipelineStageFlagBits::eTransfer,
+                                   vk::PipelineStageFlagBits::eFragmentShader,
+                                   vk::AccessFlagBits::eTransferWrite,
+                                   vk::AccessFlagBits::eShaderRead);
 
     // Transition the Swapchain image to COLOR_ATTACHMENT_OPTIMAL so we can render the composite result to it.
-    m_imageStateTracker.transition(
-        cmd,
-        swapchainImage,
-        vk::ImageLayout::eColorAttachmentOptimal,
-        vk::PipelineStageFlagBits::eTopOfPipe,
-        vk::PipelineStageFlagBits::eColorAttachmentOutput,
-        {},
-        vk::AccessFlagBits::eColorAttachmentWrite);
+    m_imageStateTracker.transition(cmd,
+                                   swapchainImage,
+                                   vk::ImageLayout::eColorAttachmentOptimal,
+                                   vk::PipelineStageFlagBits::eTopOfPipe,
+                                   vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                                   {},
+                                   vk::AccessFlagBits::eColorAttachmentWrite);
 
     m_imageStateTracker.transition(
         cmd,
@@ -397,15 +433,14 @@ void VulkanRenderer::drawFrame()
         vk::AccessFlagBits::eColorAttachmentWrite          // Destination access
     );
 
-    m_imageStateTracker.transition(
-        cmd,
-        m_depthImages[frameIdx]->get(),
-        vk::ImageLayout::eDepthStencilReadOnlyOptimal,
-        vk::PipelineStageFlagBits::eFragmentShader,
-        vk::PipelineStageFlagBits::eEarlyFragmentTests,
-        vk::AccessFlagBits::eShaderRead,
-        vk::AccessFlagBits::eDepthStencilAttachmentRead,
-        vk::ImageAspectFlagBits::eDepth);
+    m_imageStateTracker.transition(cmd,
+                                   m_depthImages[frameIdx]->get(),
+                                   vk::ImageLayout::eDepthStencilReadOnlyOptimal,
+                                   vk::PipelineStageFlagBits::eFragmentShader,
+                                   vk::PipelineStageFlagBits::eEarlyFragmentTests,
+                                   vk::AccessFlagBits::eShaderRead,
+                                   vk::AccessFlagBits::eDepthStencilAttachmentRead,
+                                   vk::ImageAspectFlagBits::eDepth);
 
     beginDynamicRendering(cmd, m_sceneViewViews[frameIdx], nullptr, extent, true);
     utils::setupViewportAndScissor(cmd, extent);
@@ -422,59 +457,58 @@ void VulkanRenderer::drawFrame()
     depthImageInfo.imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
     depthImageInfo.sampler = m_sampler->get();
 
-    std::vector writes = {
-        vk::WriteDescriptorSet{
-            m_compositeDescriptorSet->getCurrentSet(frameIdx),
-            0,
-            0,
-            1,
-            vk::DescriptorType::eCombinedImageSampler,
-            &imageInfo,
-            nullptr,
-        },
-        vk::WriteDescriptorSet{
-            m_compositeDescriptorSet->getCurrentSet(frameIdx),
-            1,
-            0,
-            1,
-            vk::DescriptorType::eUniformBuffer,
-            nullptr,
-            &compositeBufferInfo,
-            nullptr},
-        vk::WriteDescriptorSet{
-            m_compositeDescriptorSet->getCurrentSet(frameIdx),
-            2,
-            0,
-            1,
-            vk::DescriptorType::eCombinedImageSampler,
-            &depthImageInfo,
-            nullptr}};
+    std::vector writes = {vk::WriteDescriptorSet{
+                              m_compositeDescriptorSet->getCurrentSet(frameIdx),
+                              0,
+                              0,
+                              1,
+                              vk::DescriptorType::eCombinedImageSampler,
+                              &imageInfo,
+                              nullptr,
+                          },
+                          vk::WriteDescriptorSet{m_compositeDescriptorSet->getCurrentSet(frameIdx),
+                                                 1,
+                                                 0,
+                                                 1,
+                                                 vk::DescriptorType::eUniformBuffer,
+                                                 nullptr,
+                                                 &compositeBufferInfo,
+                                                 nullptr},
+                          vk::WriteDescriptorSet{m_compositeDescriptorSet->getCurrentSet(frameIdx),
+                                                 2,
+                                                 0,
+                                                 1,
+                                                 vk::DescriptorType::eCombinedImageSampler,
+                                                 &depthImageInfo,
+                                                 nullptr}};
     m_compositeDescriptorSet->updateSet(writes);
 
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_compositePipeline->get());
-    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_compositePipeline->getLayout(), 0, m_compositeDescriptorSet->getCurrentSet(m_frameManager->getFrameIndex()), nullptr);
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                           m_compositePipeline->getLayout(),
+                           0,
+                           m_compositeDescriptorSet->getCurrentSet(m_frameManager->getFrameIndex()),
+                           nullptr);
     cmd.draw(3, 1, 0, 0);
     endDynamicRendering(cmd);
 
     // -- Prepare sceneView for ImGui
-    m_imageStateTracker.transition(
-        cmd,
-        sceneViewImage,
-        vk::ImageLayout::eShaderReadOnlyOptimal,
-        vk::PipelineStageFlagBits::eColorAttachmentOutput,
-        vk::PipelineStageFlagBits::eFragmentShader,
-        vk::AccessFlagBits::eColorAttachmentWrite,
-        vk::AccessFlagBits::eShaderRead);
+    m_imageStateTracker.transition(cmd,
+                                   sceneViewImage,
+                                   vk::ImageLayout::eShaderReadOnlyOptimal,
+                                   vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                                   vk::PipelineStageFlagBits::eFragmentShader,
+                                   vk::AccessFlagBits::eColorAttachmentWrite,
+                                   vk::AccessFlagBits::eShaderRead);
 
     // UI pass
-    m_imageStateTracker.transition(
-        cmd,
-        swapchainImage,
-        vk::ImageLayout::eColorAttachmentOptimal,
-        vk::PipelineStageFlagBits::eTopOfPipe,
-        vk::PipelineStageFlagBits::eColorAttachmentOutput,
-        {},
-        vk::AccessFlagBits::eColorAttachmentWrite);
+    m_imageStateTracker.transition(cmd,
+                                   swapchainImage,
+                                   vk::ImageLayout::eColorAttachmentOptimal,
+                                   vk::PipelineStageFlagBits::eTopOfPipe,
+                                   vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                                   {},
+                                   vk::AccessFlagBits::eColorAttachmentWrite);
 
     // --- 4. UI Pass ---
     // The UI is rendered on top of the composited scene.
@@ -487,14 +521,13 @@ void VulkanRenderer::drawFrame()
 
     // --- 5. Prepare for Presentation ---
     // Transition the swapchain image from COLOR_ATTACHMENT to PRESENT_SRC_KHR for the presentation engine.
-    m_imageStateTracker.transition(
-        cmd,
-        swapchainImage,
-        vk::ImageLayout::ePresentSrcKHR,
-        vk::PipelineStageFlagBits::eColorAttachmentOutput,
-        vk::PipelineStageFlagBits::eBottomOfPipe,
-        vk::AccessFlagBits::eColorAttachmentWrite,
-        {});
+    m_imageStateTracker.transition(cmd,
+                                   swapchainImage,
+                                   vk::ImageLayout::ePresentSrcKHR,
+                                   vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                                   vk::PipelineStageFlagBits::eBottomOfPipe,
+                                   vk::AccessFlagBits::eColorAttachmentWrite,
+                                   {});
 
     endCommandBuffer(cmd);
 
@@ -504,8 +537,7 @@ void VulkanRenderer::drawFrame()
 void VulkanRenderer::createMSAAImage()
 {
     vk::Format format = vk::Format::eR16G16B16A16Sfloat;
-    vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eColorAttachment
-                                | vk::ImageUsageFlagBits::eInputAttachment
+    vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eInputAttachment
                                 | vk::ImageUsageFlagBits::eTransferSrc;
     size_t framesInFlight = m_frameManager->getFramesInFlightCount();
 
@@ -515,10 +547,7 @@ void VulkanRenderer::createMSAAImage()
 
     for (size_t i = 0; i < framesInFlight; ++i)
     {
-        auto built = builder.setFormat(format)
-                         .setUsage(usage)
-                         .setSamples(vk::SampleCountFlagBits::e4)
-                         .build();
+        auto built = builder.setFormat(format).setUsage(usage).setSamples(vk::SampleCountFlagBits::e4).build();
         m_msaaImages[i] = std::move(built.image);
         m_msaaColorViews[i] = built.view;
 
@@ -529,7 +558,8 @@ void VulkanRenderer::createMSAAImage()
 void VulkanRenderer::createResolveImages()
 {
     vk::Format format = vk::Format::eR16G16B16A16Sfloat;
-    vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst;
+    vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled
+                                | vk::ImageUsageFlagBits::eTransferDst;
     size_t framesInFlight = m_frameManager->getFramesInFlightCount();
 
     utils::ImageBuilder builder(m_context->device(), *m_allocator, m_swapchain->getExtent());
@@ -538,9 +568,7 @@ void VulkanRenderer::createResolveImages()
 
     for (size_t i = 0; i < framesInFlight; ++i)
     {
-        auto built = builder.setFormat(format)
-                         .setUsage(usage)
-                         .build(); // Defaults to e1 samples
+        auto built = builder.setFormat(format).setUsage(usage).build(); // Defaults to e1 samples
 
         m_resolveImages[i] = std::move(built.image);
         m_resolveViews[i] = built.view;
@@ -551,7 +579,8 @@ void VulkanRenderer::createResolveImages()
 void VulkanRenderer::createSceneViewImages()
 {
     vk::Format format = m_swapchain->getFormat();
-    vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferSrc;
+    vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled
+                                | vk::ImageUsageFlagBits::eTransferSrc;
     size_t framesInFlight = m_frameManager->getFramesInFlightCount();
 
     // Destroy old resources if recreating
@@ -568,9 +597,7 @@ void VulkanRenderer::createSceneViewImages()
 
     for (size_t i = 0; i < framesInFlight; ++i)
     {
-        auto built = builder.setFormat(format)
-                         .setUsage(usage)
-                         .build(); // Defaults to e1 samples and color aspect
+        auto built = builder.setFormat(format).setUsage(usage).build(); // Defaults to e1 samples and color aspect
 
         m_sceneViewImages[i] = std::move(built.image);
         m_sceneViewViews[i] = built.view;
@@ -602,12 +629,13 @@ void VulkanRenderer::createSampler()
 void VulkanRenderer::createDescriptorSets()
 {
 
+
+
     const auto framesInFlight = m_frameManager->getFramesInFlightCount();
     m_sceneViewImageDescriptorSets.resize(framesInFlight);
     for (int i = 0; i < framesInFlight; ++i)
     {
-        m_sceneViewImageDescriptorSets[i] =
-            m_imgui->createDescriptorSet(m_sceneViewViews[i], m_sampler->get());
+        m_sceneViewImageDescriptorSets[i] = m_imgui->createDescriptorSet(m_sceneViewViews[i], m_sampler->get());
     }
 }
 void VulkanRenderer::createDepthImages()
@@ -668,15 +696,12 @@ void VulkanRenderer::initScene()
 
     auto meshDataVec = loadModelFromBinary("monkey.mesh");
 
-    if (!meshDataVec.empty()) {
+    if (!meshDataVec.empty())
+    {
         const auto& meshData = meshDataVec[0]; // Use the first mesh for monkey
-        auto monkeyMesh = std::make_shared<Mesh>(
-            *m_allocator, meshData.vertices, meshData.indices
-        );
+        auto monkeyMesh = std::make_shared<Mesh>(*m_allocator, meshData.vertices, meshData.indices);
         m_objects.push_back(RenderObject{monkeyMesh});
     }
-
-
 }
 
 } // namespace reactor
