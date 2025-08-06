@@ -68,6 +68,11 @@ add_library(ReactorLib STATIC
         src/core/ModelIO.cpp
         src/vulkan/ShadowMapping.hpp
         src/vulkan/ShadowMapping.cpp
+        src/logging/Logger.hpp
+        src/logging/SpdlogSink.cpp
+        src/logging/SpdlogSink.hpp
+        src/logging/ImGuiConsoleSink.cpp
+        src/logging/ImGuiConsoleSink.hpp
 )
 
 target_compile_definitions(ReactorLib PUBLIC GLM_ENABLE_EXPERIMENTAL)

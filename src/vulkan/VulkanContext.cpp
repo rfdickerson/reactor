@@ -2,7 +2,7 @@
 
 #include <set>
 
-#include <spdlog/spdlog.h>
+#include "../logging/Logger.hpp"
 
 namespace {
 void printVulkanVersion() {
@@ -11,7 +11,7 @@ void printVulkanVersion() {
         uint32_t major = VK_VERSION_MAJOR(vulkanApiVersion);
         uint32_t minor = VK_VERSION_MINOR(vulkanApiVersion);
         uint32_t patch = VK_VERSION_PATCH(vulkanApiVersion);
-        spdlog::info("Vulkan API version: {}.{}.{}", major, minor, patch);
+        LOG_INFO("Vulkan API version: {}.{}.{}", major, minor, patch);
     } else {
         spdlog::error("Failed to enumerate Vulkan API version");
     }

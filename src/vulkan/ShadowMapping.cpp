@@ -2,6 +2,7 @@
 
 #include "VulkanRenderer.hpp"
 #include "../core/Uniforms.hpp"
+#include "../logging/Logger.hpp"
 
 namespace reactor
 {
@@ -87,7 +88,7 @@ void ShadowMapping::createResources()
 
 void ShadowMapping::createPipeline()
 {
-    spdlog::info("Creating shadow mapping pipeline");
+    LOG_INFO("Creating shadow mapping pipeline");
 
     auto device = m_renderer.device();
 

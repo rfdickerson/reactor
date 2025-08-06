@@ -5,6 +5,9 @@
 #include "../core/Window.hpp"
 #include "ImageUtils.hpp"
 #include "VulkanUtils.hpp"
+#include "../logging/SpdlogSink.hpp"
+#include "../logging/ImGuiConsoleSink.hpp"
+#include "../logging/Logger.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -14,6 +17,15 @@ namespace reactor
 VulkanRenderer::VulkanRenderer(const RendererConfig& config, Window& window, Camera& camera)
     : m_config(config), m_window(window), m_camera(camera)
 {
+
+    auto imguiConsoleSink = std::make_shared<ImGuiConsoleSink>();
+    auto spdlogSing = std::make_shared<SpdlogSink>();
+
+    Logger::getInstance().addSink(imguiConsoleSink);
+    Logger::getInstance().addSink(spdlogSing);
+
+    LOG_INFO("Created the logger");
+
     createCoreVulkanObjects();
     createSwapchainAndFrameManager();
 
@@ -25,7 +37,7 @@ VulkanRenderer::VulkanRenderer(const RendererConfig& config, Window& window, Cam
 
     createDescriptorPool();
     createPipelineAndDescriptors();
-    setupUI();
+    setupUI(imguiConsoleSink);
     createMSAAImage();
     createResolveImages();
     createSceneViewImages();
@@ -151,9 +163,9 @@ void VulkanRenderer::handleSwapchainResizing()
     }
 }
 
-void VulkanRenderer::setupUI()
+void VulkanRenderer::setupUI(std::shared_ptr<ImGuiConsoleSink> consoleSink)
 {
-    m_imgui = std::make_unique<Imgui>(*m_context, m_window, m_window.getEventManager());
+    m_imgui = std::make_unique<Imgui>(*m_context, m_window, m_window.getEventManager(), consoleSink);
 }
 
 VulkanRenderer::~VulkanRenderer()

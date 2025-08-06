@@ -6,38 +6,43 @@
 
 #define IMGUI_IMPL_VULKAN_NO_PROTOTYPES
 #include <imgui.h>
-#include <imgui_internal.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
+#include <imgui_internal.h>
 
-namespace reactor {
+namespace reactor
+{
 
-Imgui::Imgui(VulkanContext &vulkanContext, Window &window, EventManager &eventManager) :
-m_device(vulkanContext.device()), m_eventManager(eventManager) {
+Imgui::Imgui(VulkanContext& vulkanContext,
+             Window& window,
+             EventManager& eventManager,
+             std::shared_ptr<ImGuiConsoleSink> consoleSink)
+    : m_device(vulkanContext.device()), m_eventManager(eventManager), m_consoleSink(std::move(consoleSink))
+{
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
+    ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     ImGui::StyleColorsDark();
 
     // --- Initialize descriptor pool for ImGui ---
-    VkDescriptorPoolSize       pool_sizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
-                                               {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
-                                               {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
-                                               {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
-                                               {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
-                                               {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
-                                               {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
-                                               {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
-                                               {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
-                                               {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
-                                               {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}};
-    VkDescriptorPoolCreateInfo pool_info    = {};
-    pool_info.sType                         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.flags                         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    pool_info.maxSets                       = 1000 * IM_ARRAYSIZE(pool_sizes);
-    pool_info.poolSizeCount                 = (uint32_t)IM_ARRAYSIZE(pool_sizes);
-    pool_info.pPoolSizes                    = pool_sizes;
+    VkDescriptorPoolSize pool_sizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
+                                         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
+                                         {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
+                                         {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
+                                         {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
+                                         {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
+                                         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
+                                         {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
+                                         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
+                                         {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
+                                         {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}};
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
+    pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
+    pool_info.pPoolSizes = pool_sizes;
 
     // create the pool
     m_descriptorPool = vulkanContext.device().createDescriptorPool(pool_info);
@@ -48,36 +53,38 @@ m_device(vulkanContext.device()), m_eventManager(eventManager) {
     auto colorAttachmentFormat = vk::Format::eB8G8R8A8Srgb;
 
     vk::PipelineRenderingCreateInfo renderingInfo{};
-    renderingInfo.colorAttachmentCount    = 1;
+    renderingInfo.colorAttachmentCount = 1;
     renderingInfo.pColorAttachmentFormats = &colorAttachmentFormat;
-    renderingInfo.viewMask                = 0;
-    renderingInfo.depthAttachmentFormat   = vk::Format::eUndefined;
+    renderingInfo.viewMask = 0;
+    renderingInfo.depthAttachmentFormat = vk::Format::eUndefined;
     renderingInfo.stencilAttachmentFormat = vk::Format::eUndefined;
 
     ImGui_ImplVulkan_InitInfo initInfo{};
-    initInfo.Instance                    = vulkanContext.instance();
-    initInfo.PhysicalDevice              = vulkanContext.physicalDevice();
-    initInfo.Device                      = vulkanContext.device();
-    initInfo.QueueFamily                 = vulkanContext.queueFamilies().graphicsFamily.value();
-    initInfo.Queue                       = vulkanContext.graphicsQueue();
-    initInfo.PipelineCache               = nullptr;
-    initInfo.DescriptorPool              = m_descriptorPool;
-    initInfo.MinImageCount               = 3;
-    initInfo.ImageCount                  = 3;
-    initInfo.UseDynamicRendering         = true;
+    initInfo.Instance = vulkanContext.instance();
+    initInfo.PhysicalDevice = vulkanContext.physicalDevice();
+    initInfo.Device = vulkanContext.device();
+    initInfo.QueueFamily = vulkanContext.queueFamilies().graphicsFamily.value();
+    initInfo.Queue = vulkanContext.graphicsQueue();
+    initInfo.PipelineCache = nullptr;
+    initInfo.DescriptorPool = m_descriptorPool;
+    initInfo.MinImageCount = 3;
+    initInfo.ImageCount = 3;
+    initInfo.UseDynamicRendering = true;
     initInfo.PipelineRenderingCreateInfo = renderingInfo;
 
     ImGui_ImplVulkan_Init(&initInfo);
 }
 
-Imgui::~Imgui() {
+Imgui::~Imgui()
+{
 
     ImGui_ImplGlfw_Shutdown();
     ImGui_ImplVulkan_Shutdown();
     m_device.destroyDescriptorPool(m_descriptorPool);
 }
 
-void Imgui::createFrame() {
+void Imgui::createFrame()
+{
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -88,24 +95,26 @@ void Imgui::createFrame() {
     ShowConsole();
 }
 
-void Imgui::drawFrame(vk::CommandBuffer commandBuffer) {
+void Imgui::drawFrame(vk::CommandBuffer commandBuffer)
+{
     ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 }
 
-void Imgui::ShowDockspace() {
+void Imgui::ShowDockspace()
+{
     static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
 
-    ImGuiWindowFlags     window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
-    const ImGuiViewport *viewport     = ImGui::GetMainViewport();
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
 
     ImGui::SetNextWindowPos(viewport->Pos);
     ImGui::SetNextWindowSize(viewport->Size);
     ImGui::SetNextWindowViewport(viewport->ID);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
-                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+    window_flags |=
+        ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
     window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
 
     ImGui::Begin("DockSpace Window", nullptr, window_flags);
@@ -116,7 +125,8 @@ void Imgui::ShowDockspace() {
     ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
 
     static bool first_time = true;
-    if (first_time) {
+    if (first_time)
+    {
         SetupInitialDockLayout(dockspace_id);
         first_time = false;
     }
@@ -124,32 +134,31 @@ void Imgui::ShowDockspace() {
     ImGui::End();
 }
 
-void Imgui::ShowSceneView() {
+void Imgui::ShowSceneView()
+{
     ImGui::Begin("Scene View");
 
-    if (m_sceneImguiId) {
+    if (m_sceneImguiId)
+    {
 
         const ImVec2 size = ImGui::GetContentRegionAvail();
 
         if (size.x > 0.0f && size.y > 0.0f)
         {
-            const auto id =
-                reinterpret_cast<ImTextureID>(static_cast<VkDescriptorSet>(m_sceneImguiId));
+            const auto id = reinterpret_cast<ImTextureID>(static_cast<VkDescriptorSet>(m_sceneImguiId));
 
-            ImGui::Image(
-                id,
-                size,
-                ImVec2(0, 1),
-                ImVec2(1, 0));
+            ImGui::Image(id, size, ImVec2(0, 1), ImVec2(1, 0));
 
             ImVec2 image_pos = ImGui::GetItemRectMin();
             ImGui::SetCursorScreenPos(image_pos);
             ImGui::InvisibleButton("scene_viewport", size);
 
-            if (ImGui::IsItemHovered()) {
+            if (ImGui::IsItemHovered())
+            {
                 ImGuiIO& io = ImGui::GetIO();
                 // Post MouseMoved if position changed
-                if (io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f) {
+                if (io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f)
+                {
                     Event e{};
                     e.type = EventType::MouseMoved;
                     e.mouseMove.x = static_cast<double>(io.MousePos.x);
@@ -158,8 +167,10 @@ void Imgui::ShowSceneView() {
                 }
 
                 // Post button presses/releases for left (0), right (1), middle (2)
-                for (int btn = 0; btn < 3; ++btn) {
-                    if (ImGui::IsMouseClicked(btn)) {
+                for (int btn = 0; btn < 3; ++btn)
+                {
+                    if (ImGui::IsMouseClicked(btn))
+                    {
                         Event e{};
                         e.type = EventType::MouseButtonPressed;
                         e.mouseButton.button = btn;
@@ -167,7 +178,8 @@ void Imgui::ShowSceneView() {
                         e.mouseButton.y = static_cast<double>(io.MousePos.y);
                         m_eventManager.post(e);
                     }
-                    if (ImGui::IsMouseReleased(btn)) {
+                    if (ImGui::IsMouseReleased(btn))
+                    {
                         Event e{};
                         e.type = EventType::MouseButtonReleased;
                         e.mouseButton.button = btn;
@@ -176,17 +188,19 @@ void Imgui::ShowSceneView() {
                         m_eventManager.post(e);
                     }
                 }
-
             }
         }
-    } else {
+    }
+    else
+    {
         ImGui::Text("No scene image");
     }
 
     ImGui::End();
 }
 
-void Imgui::ShowInspector() {
+void Imgui::ShowInspector()
+{
     ImGui::Begin("Inspector");
     ImGui::SliderFloat("Exposure", &m_exposure, 0.0, 2.0);
     ImGui::SliderFloat("Contrast", &m_contrast, 0.0, 2.0);
@@ -196,13 +210,74 @@ void Imgui::ShowInspector() {
     ImGui::End();
 }
 
-void Imgui::ShowConsole() {
+void Imgui::ShowConsole()
+{
     ImGui::Begin("Console");
-    ImGui::Text("Console");
+
+    // Add a "Clear" button to empty the console
+    if (ImGui::Button("Clear"))
+    {
+        if (m_consoleSink)
+        {
+            m_consoleSink->clearMessages();
+        }
+    }
+
+    ImGui::SameLine();
+
+    ImGui::Separator();
+
+    ImGui::BeginChild("ScrollingRegion", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+
+    if (m_consoleSink)
+    {
+        // Safely access and draw messages using the thread-safe accessor
+        m_consoleSink->accessMessages([](const std::deque<LogMessage>& messages) {
+            for (const auto& msg : messages)
+            {
+                ImVec4 color;
+                switch (msg.level)
+                {
+                case LogLevel::Trace:
+                    color = ImVec4(0.6f, 0.6f, 0.6f, 1.0f);
+                    break; // Grey
+                case LogLevel::Info:
+                    color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+                    break; // White
+                case LogLevel::Warn:
+                    color = ImVec4(1.0f, 1.0f, 0.4f, 1.0f);
+                    break; // Yellow
+                case LogLevel::Error:
+                    color = ImVec4(1.0f, 0.4f, 0.4f, 1.0f);
+                    break; // Red
+                case LogLevel::Critical:
+                    color = ImVec4(1.0f, 0.2f, 0.2f, 1.0f);
+                    break; // Bright Red
+                default:
+                    color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+                    break;
+                }
+
+                ImGui::PushStyleColor(ImGuiCol_Text, color);
+                ImGui::TextUnformatted(msg.message.c_str());
+                ImGui::PopStyleColor();
+
+            }
+        });
+
+        // Auto-scroll to the bottom if the user hasn't scrolled up
+        if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
+        {
+            ImGui::SetScrollHereY(1.0f);
+        }
+    }
+
+    ImGui::EndChild();
     ImGui::End();
 }
 
-void Imgui::SetupInitialDockLayout(ImGuiID dockspace_id) {
+void Imgui::SetupInitialDockLayout(ImGuiID dockspace_id)
+{
     ImGui::DockBuilderRemoveNode(dockspace_id); // Clear existing layout
     ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dockspace_id, ImGui::GetMainViewport()->Size);
@@ -216,20 +291,19 @@ void Imgui::SetupInitialDockLayout(ImGuiID dockspace_id) {
     ImGui::DockBuilderDockWindow("Scene View", dock_main);
     ImGui::DockBuilderDockWindow("Inspector", dock_right);
     ImGui::DockBuilderDockWindow("Console", dock_bottom);
-    ImGui::DockBuilderDockWindow("Composite", dock_main);  // or move to its own panel
+    ImGui::DockBuilderDockWindow("Composite", dock_main); // or move to its own panel
 
     ImGui::DockBuilderFinish(dockspace_id);
 }
 
-
-vk::DescriptorSet Imgui::createDescriptorSet(vk::ImageView imageView, vk::Sampler sampler) {
+vk::DescriptorSet Imgui::createDescriptorSet(vk::ImageView imageView, vk::Sampler sampler)
+{
 
     // if (m_sceneImguiId) {
     //     ImGui_ImplVulkan_RemoveTexture(m_sceneImguiId);
     // }
 
     return ImGui_ImplVulkan_AddTexture(sampler, imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
 }
 
 } // namespace reactor

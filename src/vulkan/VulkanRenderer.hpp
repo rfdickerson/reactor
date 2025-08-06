@@ -94,7 +94,7 @@ private:
     void createCoreVulkanObjects();
     void createSwapchainAndFrameManager();
     void createPipelineAndDescriptors();
-    void setupUI();
+    void setupUI(std::shared_ptr<class ImGuiConsoleSink> consoleSink);
     void createMSAAImage();
     void createResolveImages();
     void createSceneViewImages();
