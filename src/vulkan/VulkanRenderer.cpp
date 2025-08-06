@@ -36,6 +36,7 @@ VulkanRenderer::VulkanRenderer(const RendererConfig& config, Window& window, Cam
     initScene();
 
     m_shadowMapping = std::make_unique<ShadowMapping>(*this);
+    m_imageStateTracker.recordState(m_shadowMapping->shadowMapImage(), vk::ImageLayout::eUndefined);
 }
 
 Allocator& VulkanRenderer::allocator()
@@ -95,8 +96,8 @@ void VulkanRenderer::createPipelineAndDescriptors()
 
     const std::vector bindings = {
         vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex),
-        vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment)
-
+        vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
+        vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment),
     };
     m_descriptorSet = std::make_unique<DescriptorSet>(m_context->device(), m_descriptorPool, 2, bindings);
     const std::vector setLayouts = {m_descriptorSet->getLayout()};
@@ -308,17 +309,46 @@ void VulkanRenderer::drawFrame()
     compositeData.uFogDensity = m_imgui->getFogDensity();
     m_uniformManager->update<CompositeUBO>(frameIdx, compositeData);
 
+    const float orthoSize = 10.0f;
+    const float nearPlane = 0.1f;
+    const float farPlane = 100.0f;
+    glm::mat4 lightProjection = glm::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, nearPlane, farPlane);
+
+    glm::vec3 lightPosition = glm::vec3(15.0f, 15.0f, 5.0f);
+    glm::mat4 lightView = glm::lookAt(
+        lightPosition,             // Position of the light in world space
+        glm::vec3(0.0f, 0.0f, 0.0f), // The point the light is looking at (scene origin)
+        glm::vec3(0.0f, 1.0f, 0.0f)  // Up vector
+    );
+
+    glm::mat4 clipCorrection = {
+        1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f,-1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.5f, 0.5f,
+        0.0f, 0.0f, 0.0f, 1.0f
+    };
+
+    glm::mat4 lightSpaceMatrix = clipCorrection * lightProjection * lightView;
+
+    // 4. Set the matrix for the shadow mapping pass.
+    m_shadowMapping->setLightMatrix(lightSpaceMatrix, frameIdx);
+
     SceneUBO ubo{};
     ubo.view = m_camera.getViewMatrix();
     ubo.projection = m_camera.getProjectionMatrix();
+    ubo.lightSpaceMatrix = lightSpaceMatrix;
 
     m_uniformManager->update<DirectionalLightUBO>(frameIdx, m_light);
-
     m_uniformManager->update<SceneUBO>(frameIdx, ubo);
 
     // Get descriptor info for both UBOs
     vk::DescriptorBufferInfo sceneBufferInfo = m_uniformManager->getDescriptorInfo<SceneUBO>(frameIdx);
     vk::DescriptorBufferInfo lightBufferInfo = m_uniformManager->getDescriptorInfo<DirectionalLightUBO>(frameIdx);
+
+    vk::DescriptorImageInfo shadowMapImageInfo = {};
+    shadowMapImageInfo.sampler = m_shadowMapping->shadowMapSampler();
+    shadowMapImageInfo.imageView = m_shadowMapping->shadowMapView();
+    shadowMapImageInfo.imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
 
     // Create write for Scene UBO at binding 0
     vk::WriteDescriptorSet sceneWrite{};
@@ -336,7 +366,14 @@ void VulkanRenderer::drawFrame()
     lightWrite.descriptorCount = 1;
     lightWrite.pBufferInfo = &lightBufferInfo;
 
-    m_descriptorSet->updateSet({sceneWrite, lightWrite});
+    vk::WriteDescriptorSet shadowMapWrite{};
+    shadowMapWrite.dstSet = m_descriptorSet->getCurrentSet(frameIdx);
+    shadowMapWrite.dstBinding = 2; // Target binding 2
+    shadowMapWrite.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    shadowMapWrite.descriptorCount = 1;
+    shadowMapWrite.pImageInfo = &shadowMapImageInfo;
+
+    m_descriptorSet->updateSet({sceneWrite, lightWrite, shadowMapWrite});
 
     beginCommandBuffer(cmd);
 
@@ -359,39 +396,7 @@ void VulkanRenderer::drawFrame()
     drawGeometry(cmd);
     endDynamicRendering(cmd);
 
-    // Shadow pass
-    // --- Prepare for Shadow Pass ---
-    // 1. Create the orthographic projection matrix for the directional light.
-    // This defines a "box" in space that will cast shadows.
-    // You can adjust these values to fit your scene's size.
-    const float orthoSize = 10.0f;
-    const float nearPlane = 0.1f;
-    const float farPlane = 100.0f;
-    glm::mat4 lightProjection = glm::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, nearPlane, farPlane);
 
-    // 2. Create the view matrix from the light's perspective.
-    // This uses the light's direction, which is already updated in your m_light UBO.
-    // We place the light "camera" at a position based on its direction and make it look at the scene origin.
-    glm::vec3 lightPosition = glm::vec3(15.0f, 15.0f, 5.0f);
-    glm::mat4 lightView = glm::lookAt(
-        lightPosition,             // Position of the light in world space
-        glm::vec3(0.0f, 0.0f, 0.0f), // The point the light is looking at (scene origin)
-        glm::vec3(0.0f, 1.0f, 0.0f)  // Up vector
-    );
-
-    // 3. Combine the matrices to create the final light-space matrix.
-    // Note: Vulkan's clip space has an inverted Y-axis. We need to add a correction.
-    glm::mat4 clipCorrection = {
-        1.0f, 0.0f, 0.0f, 0.0f,
-        0.0f,-1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.5f, 0.5f,
-        0.0f, 0.0f, 0.0f, 1.0f
-    };
-
-    glm::mat4 lightSpaceMatrix = clipCorrection * lightProjection * lightView;
-
-    // 4. Set the matrix for the shadow mapping pass.
-    m_shadowMapping->setLightMatrix(lightSpaceMatrix, frameIdx);
 
     //m_shadowMapping->setLightMatrix(lightMVP, frameIdx);
     auto drawFunc = [this](vk::CommandBuffer cmd) {
@@ -399,6 +404,15 @@ void VulkanRenderer::drawFrame()
     };
 
     m_shadowMapping->recordShadowPass(cmd, frameIdx, drawFunc);
+
+    m_imageStateTracker.transition(cmd,
+        m_shadowMapping->shadowMapImage(),
+        vk::ImageLayout::eDepthStencilReadOnlyOptimal,
+        vk::PipelineStageFlagBits::eLateFragmentTests,
+        vk::PipelineStageFlagBits::eFragmentShader,
+        vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+        vk::AccessFlagBits::eShaderRead,
+        vk::ImageAspectFlagBits::eDepth);
 
     // --- 1. Geometry Pass ---
     // Transition the MSAA image so we can render the main scene into it.

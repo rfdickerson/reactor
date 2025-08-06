@@ -212,6 +212,11 @@ vk::DescriptorSet ShadowMapping::shadowMapDescriptorSet(size_t frameIndex) const
     return m_descriptors->get(frameIndex);
 }
 
+vk::Image ShadowMapping::shadowMapImage() const
+{
+    return m_shadowMap->get();
+}
+
 void ShadowMapping::setLightMatrix(const glm::mat4& lightSpaceMatrix, size_t frameIndex)
 {
     SceneUBO ubo;

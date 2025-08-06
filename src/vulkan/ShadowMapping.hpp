@@ -23,6 +23,7 @@ public:
     vk::ImageView shadowMapView() const;
     vk::Sampler shadowMapSampler() const;
     vk::DescriptorSet shadowMapDescriptorSet(size_t frameIndex) const;
+    vk::Image shadowMapImage() const;
 
     void setLightMatrix(const glm::mat4& lightMVP, size_t frameIndex);
 
