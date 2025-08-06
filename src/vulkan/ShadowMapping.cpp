@@ -178,8 +178,8 @@ void ShadowMapping::recordShadowPass(vk::CommandBuffer cmd,
     cmd.beginRendering(&renderingInfo);
 
     // set viewport/scissor
-    vk::Viewport viewport = {0.0f, 0.0f, (float)m_resolution, (float)m_resolution, 0.0f, 1.0f};
-    vk::Rect2D scissor = {vk::Offset2D{0, 0}, vk::Extent2D{m_resolution, m_resolution}};
+    const vk::Viewport viewport = {0.0f, 0.0f, static_cast<float>(m_resolution), static_cast<float>(m_resolution), 0.0f, 1.0f};
+    const vk::Rect2D scissor = {vk::Offset2D{0, 0}, vk::Extent2D{m_resolution, m_resolution}};
     cmd.setViewport(0, viewport);
     cmd.setScissor(0, scissor);
 
