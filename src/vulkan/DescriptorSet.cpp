@@ -8,8 +8,8 @@
 
 namespace reactor {
 
-    DescriptorSet::DescriptorSet(vk::Device device, size_t framesInFlight, const std::vector<vk::DescriptorSetLayoutBinding> &bindings)
-        : m_device(device)
+    DescriptorSet::DescriptorSet(vk::Device device, vk::DescriptorPool pool, size_t framesInFlight, const std::vector<vk::DescriptorSetLayoutBinding> &bindings)
+        : m_device(device), m_pool(pool)
     {
         // create a descriptor set layout
         vk::DescriptorSetLayoutCreateInfo layoutInfo({}, bindings);
@@ -20,13 +20,6 @@ namespace reactor {
             poolSizes.push_back({binding.descriptorType, static_cast<uint32_t>(framesInFlight)});
         }
 
-        vk::DescriptorPoolCreateInfo poolInfo(
-            vk::DescriptorPoolCreateFlags(),
-            static_cast<uint32_t>(framesInFlight),
-            static_cast<uint32_t>(poolSizes.size()), poolSizes.data());
-
-        m_pool = device.createDescriptorPool(poolInfo);
-
         // allocate one set per frame
         std::vector<vk::DescriptorSetLayout> layouts(framesInFlight, m_layout);
         vk::DescriptorSetAllocateInfo allocInfo(m_pool, layouts);
@@ -35,13 +28,12 @@ namespace reactor {
     }
 
     DescriptorSet::~DescriptorSet() {
-        if (m_pool) m_device.destroyDescriptorPool(m_pool);
         if (m_layout) m_device.destroyDescriptorSetLayout(m_layout);
     }
 
     void DescriptorSet::updateUniformBuffer(size_t frame, const Buffer &buffer) {
         vk::DescriptorBufferInfo bufferInfo;
-        bufferInfo.buffer = buffer.buffer();
+        bufferInfo.buffer = buffer.getHandle();
         bufferInfo.offset = 0;
         bufferInfo.range = buffer.size();
 

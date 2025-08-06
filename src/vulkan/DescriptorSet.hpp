@@ -12,6 +12,7 @@ namespace reactor {
 public:
     DescriptorSet(
         vk::Device device,
+        vk::DescriptorPool pool,
         size_t framesInFlight,
         const std::vector<vk::DescriptorSetLayoutBinding>& bindings);
 

@@ -25,9 +25,9 @@ public:
         auto& buffer = m_uniformBuffers.at(name)[frameIndex];
 
         void* mappedData = nullptr;
-        vmaMapMemory(m_allocator.get(), buffer->allocation(), &mappedData);
+        vmaMapMemory(m_allocator.getAllocator(), buffer->allocation(), &mappedData);
         memcpy(mappedData, &data, sizeof(T));
-        vmaUnmapMemory(m_allocator.get(), buffer->allocation());
+        vmaUnmapMemory(m_allocator.getAllocator(), buffer->allocation());
     }
 
     // Get the descriptor info need to update a descriptor set.
@@ -37,7 +37,7 @@ public:
         const auto& buffer = m_uniformBuffers.at(name)[frameIndex];
 
         vk::DescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = buffer->buffer();
+        bufferInfo.buffer = buffer->getHandle();
         bufferInfo.offset = 0;
         bufferInfo.range = buffer->size();
         return bufferInfo;

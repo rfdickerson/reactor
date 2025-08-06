@@ -13,7 +13,7 @@ namespace reactor {
 
 class Imgui {
 public:
-    Imgui(VulkanContext& vulkanContext, Window& window);
+    Imgui(VulkanContext& vulkanContext, Window& window, EventManager& eventManager);
     ~Imgui();
 
     void createFrame();
@@ -22,6 +22,7 @@ public:
     [[nodiscard]] float getExposure() const { return m_exposure; }
     [[nodiscard]] float getContrast() const { return m_contrast; }
     [[nodiscard]] float getSaturation() const { return m_saturation; }
+    [[nodiscard]] float getFogDensity() const { return m_fogDensity; }
 
     static vk::DescriptorSet createDescriptorSet(vk::ImageView imageView, vk::Sampler sampler);
     void setSceneDescriptorSet(const vk::DescriptorSet descriptorSet) { m_sceneImguiId = descriptorSet; };
@@ -29,6 +30,7 @@ public:
 private:
 
     vk::Device m_device;
+    EventManager& m_eventManager;
     vk::DescriptorPool m_descriptorPool;
 
     vk::DescriptorSet m_sceneImguiId;
@@ -36,6 +38,7 @@ private:
     float m_exposure = 1.0f;
     float m_contrast = 1.0f;
     float m_saturation = 1.0f;
+    float m_fogDensity = 0.001f;
 
     void ShowDockspace();
     void ShowSceneView();

@@ -12,8 +12,9 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
+find_package(assimp CONFIG REQUIRED)
 
-add_executable(Reactor src/core/main.cpp
+add_library(ReactorLib STATIC
         src/vulkan/VulkanContext.cpp
         src/vulkan/VulkanContext.hpp
         src/pch.hpp
@@ -55,9 +56,39 @@ add_executable(Reactor src/core/main.cpp
         src/core/OrbitController.cpp
         src/core/OrbitController.hpp
         src/core/Application.cpp
-        src/core/Application.hpp)
+        src/core/Application.hpp
+        src/vulkan/Vertex.hpp
+        src/vulkan/ImageUtils.hpp
+        src/vulkan/ImageUtils.cpp
+        src/vulkan/Mesh.cpp
+        src/vulkan/Mesh.hpp
+        src/vulkan/MeshGenerators.hpp
+        src/vulkan/MeshGenerators.cpp
+        src/core/ModelIO.hpp
+        src/core/ModelIO.cpp
+        src/vulkan/ShadowMapping.hpp
+        src/vulkan/ShadowMapping.cpp
+)
 
-target_link_libraries(Reactor PRIVATE Vulkan::Vulkan Vulkan::Headers glfw fmt::fmt spdlog::spdlog GPUOpen::VulkanMemoryAllocator glm::glm)
-target_link_libraries(Reactor PRIVATE imgui::imgui)
+target_compile_definitions(ReactorLib PUBLIC GLM_ENABLE_EXPERIMENTAL)
+target_compile_definitions(ReactorLib PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
 
-target_precompile_headers(Reactor PRIVATE src/pch.hpp)
+target_link_libraries(ReactorLib PUBLIC
+        Vulkan::Vulkan
+        Vulkan::Headers
+        glfw
+        fmt::fmt
+        spdlog::spdlog
+        GPUOpen::VulkanMemoryAllocator
+        glm::glm
+        imgui::imgui
+        assimp::assimp
+)
+
+target_precompile_headers(ReactorLib PRIVATE src/pch.hpp)
+
+add_executable(Editor src/core/main.cpp)
+target_link_libraries(Editor PRIVATE ReactorLib)
+
+add_executable(BuildModel src/tools/ModelBuilder.cpp)
+target_link_libraries(BuildModel PRIVATE ReactorLib)

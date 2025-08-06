@@ -1,26 +1,55 @@
 #pragma once
 
-#include <vulkan/vulkan.hpp>
 #include <vk_mem_alloc.h>
+#include <vulkan/vulkan.hpp>
+#include <functional>
 
-namespace reactor {
+namespace reactor
+{
+class Buffer;
 
-class Allocator {
+class Allocator
+{
 public:
-    Allocator(vk::PhysicalDevice physicalDevice, vk::Device device, vk::Instance instance);
+    Allocator(vk::PhysicalDevice physicalDevice, vk::Device device, vk::Instance instance, vk::Queue graphicsQueue, uint32_t graphicsQueueFamilyIndex);
     ~Allocator();
 
-    VmaAllocator get() const { return m_allocator; }
+    VmaAllocator getAllocator() const
+    {
+        return m_allocator;
+    }
+    vk::Device getDevice() const
+    {
+        return m_device;
+    }
+    vk::Queue getGraphicsQueue() const
+    {
+        return m_graphicsQueue;
+    }
+    uint32_t getGraphicsQueueFamilyIndex() const
+    {
+        return m_graphicQueueFamilyIndex;
+    }
+
+    // New factory method
+    std::unique_ptr<Buffer> createBufferWithData(
+        const void* data,
+        vk::DeviceSize size,
+        vk::BufferUsageFlags usage,
+        const std::string& name = "");
 
     // Non-copyable
     Allocator(const Allocator&) = delete;
     Allocator& operator=(const Allocator&) = delete;
 
 private:
-    VmaAllocator m_allocator = VK_NULL_HANDLE;
 
+    void immediateSubmit(std::function<void(vk::CommandBuffer cmd)>&& function);
+
+    VmaAllocator m_allocator = nullptr;
+    vk::Device m_device;
+    vk::Queue m_graphicsQueue;
+    uint32_t m_graphicQueueFamilyIndex;
 };
 
-} // reactor
-
-
+} // namespace reactor

@@ -24,8 +24,8 @@ m_width(width), m_height(height), m_title(title), m_eventManager(eventManager) {
         glfwSetFramebufferSizeCallback(m_window, framebufferResizeCallback);
 
         glfwSetKeyCallback(m_window, keyCallback);
-        glfwSetCursorPosCallback(m_window, cursorPosCallback);
-        glfwSetMouseButtonCallback(m_window, mouseButtonCallback);
+        // glfwSetCursorPosCallback(m_window, cursorPosCallback);
+        // glfwSetMouseButtonCallback(m_window, mouseButtonCallback);
     }
 
     // The destructor cleans up GLFW resources.

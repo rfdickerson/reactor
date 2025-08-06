@@ -20,7 +20,7 @@ namespace reactor {
         allocInfo.usage = memoryUsage;
 
         const VkResult result = vmaCreateBuffer(
-            m_allocator.get(),
+            m_allocator.getAllocator(),
             reinterpret_cast<const VkBufferCreateInfo *>(&bufferInfo),
             &allocInfo,
             reinterpret_cast<VkBuffer *>(&m_buffer),
@@ -34,7 +34,7 @@ namespace reactor {
 
     Buffer::~Buffer() {
         if (m_buffer && m_allocation) {
-            vmaDestroyBuffer(m_allocator.get(), m_buffer, m_allocation);
+            vmaDestroyBuffer(m_allocator.getAllocator(), m_buffer, m_allocation);
 
             spdlog::info("Buffer {} destroyed", m_name.c_str());
 
@@ -42,6 +42,16 @@ namespace reactor {
             m_allocation = nullptr;
         }
     }
+
+void* Buffer::map() {
+    void* data;
+    vmaMapMemory(m_allocator.getAllocator(), m_allocation, &data);
+    return data;
+}
+
+void Buffer::unmap() {
+    vmaUnmapMemory(m_allocator.getAllocator(), m_allocation);
+}
 
 
 } // reactor

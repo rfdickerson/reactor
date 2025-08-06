@@ -43,6 +43,8 @@ namespace reactor {
         // Creates a Vulkan surface (the connection between Vulkan and the window system).
         vk::SurfaceKHR createVulkanSurface(vk::Instance instance);
 
+        EventManager& getEventManager() const { return m_eventManager; }
+
         // -- Resize Handling --
         bool wasResized() const { return m_framebufferResized; }
         void resetResizedFlag() { m_framebufferResized = false; }
