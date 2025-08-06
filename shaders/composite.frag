@@ -9,11 +9,11 @@ layout(binding = 0) uniform sampler2D uInputImage;
 layout(binding = 2) uniform sampler2DMS uDepthImage;
 
 layout(set = 0, binding = 1) uniform CompositeParams {
-    float uExposure;    // Default: 1.0
-    float uContrast;    // Default: 1.0
-    float uSaturation;  // Default: 1.0
-    float uVignetteIntensity;   // Default: 0.5
-    float uVignetteFalloff;     // Default 0.5
+    float uExposure;// Default: 1.0
+    float uContrast;// Default: 1.0
+    float uSaturation;// Default: 1.0
+    float uVignetteIntensity;// Default: 0.5
+    float uVignetteFalloff;// Default 0.5
     float uFogDensity;
 };
 
@@ -42,15 +42,15 @@ void main() {
 
     float depth = texelFetch(uDepthImage, texelCoord, 0).r;
 
-     // --- Fog Calculation ---
-        vec3 fogColor = vec3(0.5, 0.6, 0.7); // A cool, hazy blue
-        float fogStart = 0.5;
-        float fogEnd = 5.0;
-        float viewDistance = linearizeDepth(depth);
-        // Calculate fog amount (0.0 = no fog, 1.0 = full fog)
-        //float fogFactor = smoothstep(fogStart, fogEnd, viewDistance);
-    float fogFactor = uFogDensity;
-        // ----------------------
+    // --- Fog Calculation ---
+    vec3 fogColor = vec3(0.5, 0.6, 0.7);// A cool, hazy blue
+    float fogStart = 0.5;
+    float fogEnd = 120.0;
+    float viewDistance = linearizeDepth(depth);
+    // Calculate fog amount (0.0 = no fog, 1.0 = full fog)
+    float fogFactor = 1.0 - exp(-viewDistance * uFogDensity);
+    //    float fogFactor = uFogDensity;
+    // ----------------------
 
     // Sample the HDR input image
     vec3 hdrColor = texture(uInputImage, fragUV).rgb;
