@@ -32,33 +32,24 @@ float calculateShadow()
 }
 
 void main() {
-
-    // Define a base color for object
     vec3 objectColor = vec3(0.8, 0.8, 0.8);
 
-    // Ensure the normal is a unit vector
+    vec3 ambient = objectColor * 0.1;
+
+    // 2. Calculate the diffuse (directional) light component.
     vec3 normal = normalize(inNormal);
-
-    // The direction vector from the uniform is pointing *to* the light.
-    // We use it directly for the dot product.
-    vec3 lightDir = normalize(ubo.lightDirection.xyz);
-
-    // Calculate the diffuse factor (Lambertian reflectance)
-    // max(..., 0.0) ensures that we don't have negative light
+    vec3 lightDir = normalize(-ubo.lightDirection.xyz);
     float diffuseFactor = max(dot(normal, lightDir), 0.0);
+    vec3 diffuse = objectColor * ubo.lightColor.rgb * ubo.lightIntensity * diffuseFactor;
 
-    // Calculate the final diffuse light color
-    vec3 diffuse = ubo.lightColor.rgb * ubo.lightIntensity * diffuseFactor;
-
-    // Calculate shadow factor
+    // 3. Get the shadow factor (1.0 for lit, 0.0 for shadowed).
     float shadow = calculateShadow();
 
-    // The final color is the object's base color modulated by the diffuse light and shadow
-    vec3 finalColor = objectColor * diffuse * shadow;
+    // 4. Combine the components for the final color.
+    // The final color is the ambient light, plus the direct (diffuse) light,
+    // which IS blocked by shadows.
+    vec3 finalColor = ambient + (diffuse * shadow);
 
-    finalColor += objectColor * 0.1;
-
-    // The final color is the object's base color modulated by the diffuse light
     outColor = vec4(finalColor, 1.0);
 
 }

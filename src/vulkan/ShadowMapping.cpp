@@ -1,15 +1,10 @@
 #include "ShadowMapping.hpp"
 
 #include "VulkanRenderer.hpp"
+#include "../core/Uniforms.hpp"
 
 namespace reactor
 {
-
-struct SceneUBO
-{
-    glm::mat4 view;
-    glm::mat4 projection;
-};
 
 ShadowMapping::ShadowMapping(VulkanRenderer& renderer, uint32_t resolution)
     : m_renderer(renderer), m_resolution(resolution), m_shadowMapView(VK_NULL_HANDLE),
@@ -219,9 +214,10 @@ vk::Image ShadowMapping::shadowMapImage() const
 
 void ShadowMapping::setLightMatrix(const glm::mat4& lightSpaceMatrix, size_t frameIndex)
 {
-    SceneUBO ubo;
+    SceneUBO ubo{};
     ubo.view = glm::mat4(1.0f);
     ubo.projection = lightSpaceMatrix;
+    ubo.lightSpaceMatrix = glm::mat4(1.0f);
 
     // map buffer, copy matrix
     void* data = m_mvpBuffer[frameIndex]->map();

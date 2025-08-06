@@ -283,6 +283,10 @@ void VulkanRenderer::drawFrame()
         return; // Swapchain out-of-date
     }
 
+    static auto startTime = std::chrono::high_resolution_clock::now();
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
     const auto& currentFrame = m_frameManager->getCurrentFrame();
     const uint32_t frameIdx = m_frameManager->getCurrentFrameIndex();
     const vk::CommandBuffer cmd = currentFrame.commandBuffer;
@@ -309,23 +313,28 @@ void VulkanRenderer::drawFrame()
     compositeData.uFogDensity = m_imgui->getFogDensity();
     m_uniformManager->update<CompositeUBO>(frameIdx, compositeData);
 
+    m_light.lightDirection = glm::vec4(sin(time), -0.5f, cos(time), 0.0f);
+    m_light.lightDirection = glm::normalize(m_light.lightDirection);
+
     const float orthoSize = 10.0f;
     const float nearPlane = 0.1f;
     const float farPlane = 100.0f;
     glm::mat4 lightProjection = glm::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, nearPlane, farPlane);
 
-    glm::vec3 lightPosition = glm::vec3(15.0f, 15.0f, 5.0f);
+    glm::vec3 lightTarget = glm::vec3(0.0f);
+    float lightDistance = 20.0f;
+    glm::vec3 lightPosition = lightTarget - glm::vec3(m_light.lightDirection) * lightDistance;
     glm::mat4 lightView = glm::lookAt(
         lightPosition,             // Position of the light in world space
-        glm::vec3(0.0f, 0.0f, 0.0f), // The point the light is looking at (scene origin)
+        lightTarget, // The point the light is looking at (scene origin)
         glm::vec3(0.0f, 1.0f, 0.0f)  // Up vector
     );
 
     glm::mat4 clipCorrection = {
         1.0f, 0.0f, 0.0f, 0.0f,
         0.0f,-1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.5f, 0.5f,
-        0.0f, 0.0f, 0.0f, 1.0f
+        0.0f, 0.0f, 0.5f, 0.0f,
+        0.0f, 0.0f, 0.5f, 1.0f
     };
 
     glm::mat4 lightSpaceMatrix = clipCorrection * lightProjection * lightView;

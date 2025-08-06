@@ -9,7 +9,7 @@ struct SceneUBO {
 
 struct DirectionalLightUBO
 {
-    glm::vec4 lightPosition = glm::vec4(-0.5f, 1.0f, -0.5f, 0.0f);
+    glm::vec4 lightDirection = glm::vec4(-0.5f, 1.0f, -0.5f, 0.0f);
     glm::vec4 lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     float lightIntensity = 1.0f;
     // add 12-bytes of padding
