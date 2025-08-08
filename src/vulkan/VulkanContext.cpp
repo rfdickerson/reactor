@@ -175,6 +175,12 @@ void VulkanContext::createLogicalDevice() {
     vk::PhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures{};
     dynamicRenderingFeatures.dynamicRendering = VK_TRUE;
 
+    // create struct for Vulkan 1.1 features
+    vk::PhysicalDeviceVulkan11Features vulkan11Features{};
+    vulkan11Features.shaderDrawParameters = VK_TRUE;
+
+    dynamicRenderingFeatures.pNext = &vulkan11Features;
+
     std::vector<const char*> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         // VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME

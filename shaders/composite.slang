@@ -17,7 +17,7 @@ Texture2D uInputImage : register(t0);
 SamplerState g_sampler : register(s3);
 
 [[vk::binding(2, 0)]]
-Texture2DMS<float, MSAA_SAMPLES> uDepthImage : register(t2);
+Texture2D uDepthImage : register(t2);
 
 [[vk::binding(1, 0)]]
 cbuffer CompositeParams : register(b1)
@@ -81,7 +81,7 @@ float4 fragmentMain(Varyings input) : SV_Target
     // To read from a Texture2DMS, use the `.Load()` method.
     // It takes the coordinate and the sample index (we'll just use the first).
     // This replaces `texelFetch(uDepthImage, texelCoord, 0)`.
-    float depth = uDepthImage.Load(texelCoord, 0).r;
+    float depth = uDepthImage.Sample(g_sampler, input.uv).r;
 
     // --- Fog Calculation ---
     float3 fogColor = float3(0.5, 0.6, 0.7);

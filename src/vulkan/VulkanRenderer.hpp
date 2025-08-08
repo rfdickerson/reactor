@@ -86,6 +86,10 @@ private:
     std::vector<vk::ImageView> m_depthViews;
     std::vector<vk::DescriptorSet> m_depthImageDescriptorSets;
 
+    // storage for resolved depth
+    std::vector<std::unique_ptr<Image>> m_depthResolveImages;
+    std::vector<vk::ImageView> m_depthResolveViews;
+
     DirectionalLightUBO m_light;
     std::vector<RenderObject> m_objects;
 

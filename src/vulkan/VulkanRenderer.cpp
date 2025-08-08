@@ -201,6 +201,7 @@ VulkanRenderer::~VulkanRenderer()
         m_context->device().destroyImageView(m_resolveViews[i]);
         m_context->device().destroyImageView(m_sceneViewViews[i]);
         m_context->device().destroyImageView(m_depthViews[i]);
+        m_context->device().destroyImageView(m_depthResolveViews[i]);
     }
 
     m_context->device().destroyDescriptorPool(m_descriptorPool);
@@ -281,6 +282,9 @@ void VulkanRenderer::beginDynamicRendering(vk::CommandBuffer cmd,
         colorAttachment.loadOp = clearColor ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad;
         colorAttachment.storeOp = vk::AttachmentStoreOp::eStore;
         colorAttachment.clearValue = clearColorValue;
+        // colorAttachment.resolveImageView = m_resolveViews[m_frameManager->getCurrentFrameIndex()];
+        // colorAttachment.resolveImageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+        // colorAttachment.resolveMode = vk::ResolveModeFlagBits::eAverage;
         renderingInfo.colorAttachmentCount = 1;
         renderingInfo.pColorAttachments = &colorAttachment;
     }
@@ -297,6 +301,16 @@ void VulkanRenderer::beginDynamicRendering(vk::CommandBuffer cmd,
         depthAttachment.loadOp = clearDepth ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad;
         depthAttachment.storeOp = vk::AttachmentStoreOp::eStore;
         depthAttachment.clearValue = depthClearValue;
+
+        if (m_depthResolveViews[m_frameManager->getCurrentFrameIndex()])
+        {
+            depthAttachment.resolveImageView = m_depthResolveViews[m_frameManager->getCurrentFrameIndex()];
+            depthAttachment.resolveImageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+            depthAttachment.resolveMode = vk::ResolveModeFlagBits::eAverage;
+            // conservative
+            //depthAttachment.resolveMode = vk::ResolveModeFlagBits::eMin;
+        }
+
         renderingInfo.pDepthAttachment = &depthAttachment;
     }
     else
@@ -547,6 +561,15 @@ void VulkanRenderer::drawFrame()
                                    vk::AccessFlagBits::eDepthStencilAttachmentRead,
                                    vk::ImageAspectFlagBits::eDepth);
 
+    m_imageStateTracker.transition(cmd,
+                               m_depthResolveImages[frameIdx]->get(),
+                               vk::ImageLayout::eDepthStencilReadOnlyOptimal,
+                               vk::PipelineStageFlagBits::eLateFragmentTests,
+                               vk::PipelineStageFlagBits::eFragmentShader,
+                               vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+                               vk::AccessFlagBits::eShaderRead,
+                               vk::ImageAspectFlagBits::eDepth);
+
     Debug::endLabel(cmd);
 
     beginDynamicRendering(cmd, m_sceneViewViews[frameIdx], nullptr, extent, true);
@@ -559,7 +582,7 @@ void VulkanRenderer::drawFrame()
     resolveImageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
     vk::DescriptorImageInfo depthImageInfo = {};
-    depthImageInfo.imageView = depthView;
+    depthImageInfo.imageView = m_depthResolveViews[frameIdx];
     depthImageInfo.imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
 
     // Info for binding 3: g_sampler (the sampler to be used with uInputImage)
@@ -770,6 +793,24 @@ void VulkanRenderer::createDepthImages()
         m_depthViews[i] = built.view;
 
         m_imageStateTracker.recordState(m_depthImages[i]->get(), vk::ImageLayout::eUndefined);
+    }
+
+    // ...existing code creating m_depthImages (MSAA)...
+    m_depthResolveImages.resize(framesInFlight);
+    m_depthResolveViews.resize(framesInFlight);
+
+    utils::ImageBuilder resolveBuilder(m_context->device(), *m_allocator, m_swapchain->getExtent());
+    for (size_t i = 0; i < framesInFlight; ++i)
+    {
+        auto built = resolveBuilder
+            .setFormat(format)
+            .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled)
+            .setSamples(vk::SampleCountFlagBits::e1)
+            .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+            .build();
+        m_depthResolveImages[i] = std::move(built.image);
+        m_depthResolveViews[i] = built.view;
+        m_imageStateTracker.recordState(m_depthResolveImages[i]->get(), vk::ImageLayout::eUndefined);
     }
 }
 void VulkanRenderer::createDepthPipelineAndDescriptorSets()
