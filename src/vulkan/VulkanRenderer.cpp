@@ -95,9 +95,8 @@ void VulkanRenderer::createDescriptorPool()
 {
     std::vector<vk::DescriptorPoolSize> poolSizes = {{vk::DescriptorType::eUniformBuffer, 32},
                                                      {vk::DescriptorType::eCombinedImageSampler, 32},
-        {vk::DescriptorType::eSampledImage, 32},
-        {vk::DescriptorType::eSampler, 32}
-    };
+                                                     {vk::DescriptorType::eSampledImage, 32},
+                                                     {vk::DescriptorType::eSampler, 32}};
 
     vk::DescriptorPoolCreateInfo poolInfo(vk::DescriptorPoolCreateFlags(), 128, poolSizes.size(), poolSizes.data());
 
@@ -117,12 +116,10 @@ void VulkanRenderer::createPipelineAndDescriptors()
         vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
 
         // Binding 2: Shadow Map Texture (Fragment Shader)
-        vk::DescriptorSetLayoutBinding(
-            2, vk::DescriptorType::eSampledImage, 1, vk::ShaderStageFlagBits::eFragment),
+        vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eSampledImage, 1, vk::ShaderStageFlagBits::eFragment),
 
         // Binding 3: Shadow Map Sampler
-        vk::DescriptorSetLayoutBinding(
-            3, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
+        vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
     };
     m_descriptorSet = std::make_unique<DescriptorSet>(m_context->device(), m_descriptorPool, 2, bindings);
     const std::vector setLayouts = {m_descriptorSet->getLayout()};
@@ -145,11 +142,17 @@ void VulkanRenderer::createPipelineAndDescriptors()
                          "Main Geometry Pipeline");
 
     const std::vector compositeBindings = {
+        // binding 0: uInputImage (Texture2D)
         vk::DescriptorSetLayoutBinding(
-            0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment),
+            0, vk::DescriptorType::eSampledImage, 1, vk::ShaderStageFlagBits::eFragment),
+        // binding 1: CompositeParams (UBO)
         vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
+        // binding 2: uDepthImage (Texture2DMS)
         vk::DescriptorSetLayoutBinding(
-            2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment),
+            2, vk::DescriptorType::eSampledImage, 1, vk::ShaderStageFlagBits::eFragment),
+        // binding 3: g_sampler (SamplerState)
+        vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
+
     };
 
     m_compositeDescriptorSet =
@@ -380,7 +383,7 @@ void VulkanRenderer::drawFrame()
     vk::DescriptorBufferInfo sceneBufferInfo = m_uniformManager->getDescriptorInfo<SceneUBO>(frameIdx);
     vk::DescriptorBufferInfo lightBufferInfo = m_uniformManager->getDescriptorInfo<DirectionalLightUBO>(frameIdx);
 
-    vk::DescriptorImageInfo shadowMapTextureInfo  = {};
+    vk::DescriptorImageInfo shadowMapTextureInfo = {};
     // shadowMapImageInfo.sampler = m_shadowMapping->shadowMapSampler();
     shadowMapTextureInfo.imageView = m_shadowMapping->shadowMapView();
     shadowMapTextureInfo.imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
@@ -551,40 +554,37 @@ void VulkanRenderer::drawFrame()
 
     vk::DescriptorBufferInfo compositeBufferInfo = m_uniformManager->getDescriptorInfo<CompositeUBO>(frameIdx);
 
-    vk::DescriptorImageInfo imageInfo = {};
-    imageInfo.imageView = m_resolveViews[frameIdx];
-    imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-    imageInfo.sampler = m_sampler->get();
+    vk::DescriptorImageInfo resolveImageInfo  = {};
+    resolveImageInfo.imageView = m_resolveViews[frameIdx];
+    resolveImageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
     vk::DescriptorImageInfo depthImageInfo = {};
     depthImageInfo.imageView = depthView;
     depthImageInfo.imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
-    depthImageInfo.sampler = m_sampler->get();
 
-    std::vector writes = {vk::WriteDescriptorSet{
-                              m_compositeDescriptorSet->getCurrentSet(frameIdx),
-                              0,
-                              0,
-                              1,
-                              vk::DescriptorType::eCombinedImageSampler,
-                              &imageInfo,
-                              nullptr,
-                          },
-                          vk::WriteDescriptorSet{m_compositeDescriptorSet->getCurrentSet(frameIdx),
-                                                 1,
-                                                 0,
-                                                 1,
-                                                 vk::DescriptorType::eUniformBuffer,
-                                                 nullptr,
-                                                 &compositeBufferInfo,
-                                                 nullptr},
-                          vk::WriteDescriptorSet{m_compositeDescriptorSet->getCurrentSet(frameIdx),
-                                                 2,
-                                                 0,
-                                                 1,
-                                                 vk::DescriptorType::eCombinedImageSampler,
-                                                 &depthImageInfo,
-                                                 nullptr}};
+    // Info for binding 3: g_sampler (the sampler to be used with uInputImage)
+    vk::DescriptorImageInfo samplerInfo = {};
+    samplerInfo.sampler = m_sampler->get(); // This is the generic sampler you created
+
+    std::vector<vk::WriteDescriptorSet> writes;
+    writes.reserve(4);
+
+    // Write for binding 0
+    writes.emplace_back(m_compositeDescriptorSet->getCurrentSet(frameIdx), 0, 0, 1,
+                        vk::DescriptorType::eSampledImage, &resolveImageInfo);
+
+    // Write for binding 1
+    writes.emplace_back(m_compositeDescriptorSet->getCurrentSet(frameIdx), 1, 0, 1,
+                        vk::DescriptorType::eUniformBuffer, nullptr, &compositeBufferInfo);
+
+    // Write for binding 2
+    writes.emplace_back(m_compositeDescriptorSet->getCurrentSet(frameIdx), 2, 0, 1,
+                        vk::DescriptorType::eSampledImage, &depthImageInfo);
+
+    // Write for binding 3 (This is the crucial fix for the validation error)
+    writes.emplace_back(m_compositeDescriptorSet->getCurrentSet(frameIdx), 3, 0, 1,
+                        vk::DescriptorType::eSampler, &samplerInfo);
+
     m_compositeDescriptorSet->updateSet(writes);
 
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_compositePipeline->get());

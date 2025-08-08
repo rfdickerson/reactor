@@ -6,3 +6,6 @@ glslc -g --target-env=vulkan1.3 -o resources/shaders/composite.frag.spv shaders/
 
 slangc -g shaders/triangle.slang -target spirv -profile vs_6_0 -entry vertexMain -o resources/shaders/triangle-slang.vert.spv
 slangc -g shaders/triangle.slang -target spirv -profile ps_6_0 -entry fragmentMain -o resources/shaders/triangle-slang.frag.spv
+
+slangc -g shaders/composite.slang -target spirv -profile vs_6_0 -entry vertexMain -o resources/shaders/composite-slang.vert.spv
+slangc -g shaders/composite.slang -target spirv -profile ps_6_0 -entry fragmentMain -o resources/shaders/composite-slang.frag.spv

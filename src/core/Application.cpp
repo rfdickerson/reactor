@@ -27,8 +27,8 @@ void Application::initialize() {
         .windowTitle = "Reactor",
         .vertShaderPath = "../resources/shaders/triangle-slang.vert.spv",
         .fragShaderPath = "../resources/shaders/triangle-slang.frag.spv",
-        .compositeVertShaderPath = "../resources/shaders/composite.vert.spv",
-        .compositeFragShaderPath = "../resources/shaders/composite.frag.spv"
+        .compositeVertShaderPath = "../resources/shaders/composite-slang.vert.spv",
+        .compositeFragShaderPath = "../resources/shaders/composite-slang.frag.spv"
     };
 
     m_renderer = std::make_unique<VulkanRenderer>(config, *m_window, *m_camera);
