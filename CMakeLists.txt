@@ -73,6 +73,7 @@ add_library(ReactorLib STATIC
         src/logging/SpdlogSink.hpp
         src/logging/ImGuiConsoleSink.cpp
         src/logging/ImGuiConsoleSink.hpp
+        src/vulkan/DebugUtils.hpp
 )
 
 target_compile_definitions(ReactorLib PUBLIC GLM_ENABLE_EXPERIMENTAL)

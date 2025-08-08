@@ -4,6 +4,8 @@
 
 #include "../logging/Logger.hpp"
 
+VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
+
 namespace {
 void printVulkanVersion() {
     uint32_t vulkanApiVersion = 0;
@@ -36,6 +38,9 @@ VulkanContext::~VulkanContext() {
 }
 
 void VulkanContext::createInstance() {
+
+    VULKAN_HPP_DEFAULT_DISPATCHER.init( );
+
     constexpr vk::ApplicationInfo appInfo {
         "Reactor App",
         1,
@@ -56,6 +61,8 @@ void VulkanContext::createInstance() {
     extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
     #endif
 
+    extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+
     vk::InstanceCreateInfo createInfo {};
     createInfo.pApplicationInfo = &appInfo;
     createInfo.setPEnabledExtensionNames(extensions);
@@ -68,6 +75,7 @@ void VulkanContext::createInstance() {
         m_instance = vk::createInstance(createInfo);
         spdlog::info("Vulkan instance created");
         printVulkanVersion();
+        VULKAN_HPP_DEFAULT_DISPATCHER.init( m_instance );
 
     } catch (const vk::SystemError& err) {
         std::cerr << "Failed to create Vulkan instance: " << err.what() << std::endl;
@@ -194,6 +202,7 @@ void VulkanContext::createLogicalDevice() {
         m_presentQueue = m_device.getQueue(indices.presentFamily.value(), 0);
         m_queueFamilies = indices; // Store the found queue families
 
+        m_dldi = vk::detail::DispatchLoaderDynamic(m_instance, vkGetInstanceProcAddr, m_device, vkGetDeviceProcAddr);
         spdlog::info("Logical device created");
     } catch (const vk::SystemError& err) {
         std::cerr << "Failed to create logical device: " << err.what() << std::endl;

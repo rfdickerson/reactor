@@ -25,8 +25,8 @@ void Application::initialize() {
         .windowWidth = 1280,
         .windowHeight = 720,
         .windowTitle = "Reactor",
-        .vertShaderPath = "../resources/shaders/triangle.vert.spv",
-        .fragShaderPath = "../resources/shaders/triangle.frag.spv",
+        .vertShaderPath = "../resources/shaders/triangle-slang.vert.spv",
+        .fragShaderPath = "../resources/shaders/triangle-slang.frag.spv",
         .compositeVertShaderPath = "../resources/shaders/composite.vert.spv",
         .compositeFragShaderPath = "../resources/shaders/composite.frag.spv"
     };

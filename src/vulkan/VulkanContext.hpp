@@ -33,6 +33,7 @@ public:
     [[nodiscard]] vk::Queue graphicsQueue() const { return m_graphicsQueue; }
     [[nodiscard]] vk::Queue presentQueue() const { return m_presentQueue; }
     [[nodiscard]] QueueFamilyIndices queueFamilies() const { return m_queueFamilies; }
+    [[nodiscard]] const vk::detail::DispatchLoaderDynamic& dldi() const { return m_dldi; }
 
 private:
     // Private helper methods to keep the constructor clean
@@ -49,6 +50,7 @@ private:
     vk::SurfaceKHR m_surface;
     vk::PhysicalDevice m_physicalDevice;
     vk::Device m_device;
+    vk::detail::DispatchLoaderDynamic m_dldi;
 
     // Queues are retrieved from the logical device
     vk::Queue m_graphicsQueue;

@@ -3,11 +3,12 @@
 #include "../core/ModelIO.hpp"
 #include "../core/Uniforms.hpp"
 #include "../core/Window.hpp"
-#include "ImageUtils.hpp"
-#include "VulkanUtils.hpp"
-#include "../logging/SpdlogSink.hpp"
 #include "../logging/ImGuiConsoleSink.hpp"
 #include "../logging/Logger.hpp"
+#include "../logging/SpdlogSink.hpp"
+#include "DebugUtils.hpp"
+#include "ImageUtils.hpp"
+#include "VulkanUtils.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -93,13 +94,15 @@ void VulkanRenderer::createSwapchainAndFrameManager()
 void VulkanRenderer::createDescriptorPool()
 {
     std::vector<vk::DescriptorPoolSize> poolSizes = {{vk::DescriptorType::eUniformBuffer, 32},
-                                                 {vk::DescriptorType::eCombinedImageSampler, 32}};
+                                                     {vk::DescriptorType::eCombinedImageSampler, 32},
+        {vk::DescriptorType::eSampledImage, 32},
+        {vk::DescriptorType::eSampler, 32}
+    };
 
     vk::DescriptorPoolCreateInfo poolInfo(vk::DescriptorPoolCreateFlags(), 128, poolSizes.size(), poolSizes.data());
 
     m_descriptorPool = m_context->device().createDescriptorPool(poolInfo);
 }
-
 
 void VulkanRenderer::createPipelineAndDescriptors()
 {
@@ -107,9 +110,19 @@ void VulkanRenderer::createPipelineAndDescriptors()
     const std::string fragShaderPath = m_config.fragShaderPath;
 
     const std::vector bindings = {
+        // Binding 0: Scene UBO (Vertex Shader)
         vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex),
+
+        // Binding 1: Light UBO (Fragment Shader)
         vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
-        vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment),
+
+        // Binding 2: Shadow Map Texture (Fragment Shader)
+        vk::DescriptorSetLayoutBinding(
+            2, vk::DescriptorType::eSampledImage, 1, vk::ShaderStageFlagBits::eFragment),
+
+        // Binding 3: Shadow Map Sampler
+        vk::DescriptorSetLayoutBinding(
+            3, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
     };
     m_descriptorSet = std::make_unique<DescriptorSet>(m_context->device(), m_descriptorPool, 2, bindings);
     const std::vector setLayouts = {m_descriptorSet->getLayout()};
@@ -126,6 +139,11 @@ void VulkanRenderer::createPipelineAndDescriptors()
                      .addPushContantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4))
                      .build();
 
+    Debug::setObjectName(m_context->device(),
+                         (uint64_t)(VkPipeline)m_pipeline->get(),
+                         vk::ObjectType::ePipeline,
+                         "Main Geometry Pipeline");
+
     const std::vector compositeBindings = {
         vk::DescriptorSetLayoutBinding(
             0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment),
@@ -134,7 +152,8 @@ void VulkanRenderer::createPipelineAndDescriptors()
             2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment),
     };
 
-    m_compositeDescriptorSet = std::make_unique<DescriptorSet>(m_context->device(), m_descriptorPool, 2, compositeBindings);
+    m_compositeDescriptorSet =
+        std::make_unique<DescriptorSet>(m_context->device(), m_descriptorPool, 2, compositeBindings);
     std::vector compositeSetLayouts = {m_compositeDescriptorSet->getLayout()};
 
     m_compositePipeline = Pipeline::Builder(m_context->device())
@@ -336,18 +355,13 @@ void VulkanRenderer::drawFrame()
     glm::vec3 lightTarget = glm::vec3(0.0f);
     float lightDistance = 20.0f;
     glm::vec3 lightPosition = lightTarget - glm::vec3(m_light.lightDirection) * lightDistance;
-    glm::mat4 lightView = glm::lookAt(
-        lightPosition,             // Position of the light in world space
-        lightTarget, // The point the light is looking at (scene origin)
-        glm::vec3(0.0f, 1.0f, 0.0f)  // Up vector
+    glm::mat4 lightView = glm::lookAt(lightPosition,              // Position of the light in world space
+                                      lightTarget,                // The point the light is looking at (scene origin)
+                                      glm::vec3(0.0f, 1.0f, 0.0f) // Up vector
     );
 
     glm::mat4 clipCorrection = {
-        1.0f, 0.0f, 0.0f, 0.0f,
-        0.0f,-1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.5f, 0.0f,
-        0.0f, 0.0f, 0.5f, 1.0f
-    };
+        1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f, 0.0f, 0.0f, 0.5f, 1.0f};
 
     glm::mat4 lightSpaceMatrix = clipCorrection * lightProjection * lightView;
 
@@ -366,10 +380,13 @@ void VulkanRenderer::drawFrame()
     vk::DescriptorBufferInfo sceneBufferInfo = m_uniformManager->getDescriptorInfo<SceneUBO>(frameIdx);
     vk::DescriptorBufferInfo lightBufferInfo = m_uniformManager->getDescriptorInfo<DirectionalLightUBO>(frameIdx);
 
-    vk::DescriptorImageInfo shadowMapImageInfo = {};
-    shadowMapImageInfo.sampler = m_shadowMapping->shadowMapSampler();
-    shadowMapImageInfo.imageView = m_shadowMapping->shadowMapView();
-    shadowMapImageInfo.imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+    vk::DescriptorImageInfo shadowMapTextureInfo  = {};
+    // shadowMapImageInfo.sampler = m_shadowMapping->shadowMapSampler();
+    shadowMapTextureInfo.imageView = m_shadowMapping->shadowMapView();
+    shadowMapTextureInfo.imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+
+    vk::DescriptorImageInfo shadowMapSamplerInfo = {};
+    shadowMapSamplerInfo.sampler = m_shadowMapping->shadowMapSampler();
 
     // Create write for Scene UBO at binding 0
     vk::WriteDescriptorSet sceneWrite{};
@@ -387,17 +404,25 @@ void VulkanRenderer::drawFrame()
     lightWrite.descriptorCount = 1;
     lightWrite.pBufferInfo = &lightBufferInfo;
 
-    vk::WriteDescriptorSet shadowMapWrite{};
-    shadowMapWrite.dstSet = m_descriptorSet->getCurrentSet(frameIdx);
-    shadowMapWrite.dstBinding = 2; // Target binding 2
-    shadowMapWrite.descriptorType = vk::DescriptorType::eCombinedImageSampler;
-    shadowMapWrite.descriptorCount = 1;
-    shadowMapWrite.pImageInfo = &shadowMapImageInfo;
+    vk::WriteDescriptorSet shadowMapTextureWrite{};
+    shadowMapTextureWrite.dstSet = m_descriptorSet->getCurrentSet(frameIdx);
+    shadowMapTextureWrite.dstBinding = 2; // Target binding 2
+    shadowMapTextureWrite.descriptorType = vk::DescriptorType::eSampledImage;
+    shadowMapTextureWrite.descriptorCount = 1;
+    shadowMapTextureWrite.pImageInfo = &shadowMapTextureInfo;
 
-    m_descriptorSet->updateSet({sceneWrite, lightWrite, shadowMapWrite});
+    vk::WriteDescriptorSet shadowMapSamplerWrite{};
+    shadowMapSamplerWrite.dstSet = m_descriptorSet->getCurrentSet(frameIdx);
+    shadowMapSamplerWrite.dstBinding = 3; // Target binding 3
+    shadowMapSamplerWrite.descriptorType = vk::DescriptorType::eSampler;
+    shadowMapSamplerWrite.descriptorCount = 1;
+    shadowMapSamplerWrite.pImageInfo = &shadowMapSamplerInfo;
+
+    m_descriptorSet->updateSet({sceneWrite, lightWrite, shadowMapTextureWrite, shadowMapSamplerWrite});
 
     beginCommandBuffer(cmd);
 
+    Debug::beginLabel(cmd, "Depth Prepass", {0.8f, 0.4f, 0.2f, 1.0});
     // get depth image view for this frame
     vk::ImageView depthView = m_depthViews[frameIdx];
 
@@ -416,24 +441,25 @@ void VulkanRenderer::drawFrame()
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_depthPipeline->get());
     drawGeometry(cmd);
     endDynamicRendering(cmd);
+    Debug::endLabel(cmd);
 
-
-
-    //m_shadowMapping->setLightMatrix(lightMVP, frameIdx);
-    auto drawFunc = [this](vk::CommandBuffer cmd) {
-        this->drawGeometry(cmd);
-    };
+    Debug::beginLabel(cmd, "Shadow Pass", {0.8f, 0.4f, 0.2f, 1.0});
+    auto drawFunc = [this](vk::CommandBuffer cmd) { this->drawGeometry(cmd); };
 
     m_shadowMapping->recordShadowPass(cmd, frameIdx, drawFunc);
 
     m_imageStateTracker.transition(cmd,
-        m_shadowMapping->shadowMapImage(),
-        vk::ImageLayout::eDepthStencilReadOnlyOptimal,
-        vk::PipelineStageFlagBits::eLateFragmentTests,
-        vk::PipelineStageFlagBits::eFragmentShader,
-        vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-        vk::AccessFlagBits::eShaderRead,
-        vk::ImageAspectFlagBits::eDepth);
+                                   m_shadowMapping->shadowMapImage(),
+                                   vk::ImageLayout::eDepthStencilReadOnlyOptimal,
+                                   vk::PipelineStageFlagBits::eLateFragmentTests,
+                                   vk::PipelineStageFlagBits::eFragmentShader,
+                                   vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+                                   vk::AccessFlagBits::eShaderRead,
+                                   vk::ImageAspectFlagBits::eDepth);
+
+    Debug::endLabel(cmd);
+
+    Debug::beginLabel(cmd, "Main Pass", {0.8f, 0.4f, 0.2f, 1.0});
 
     // --- 1. Geometry Pass ---
     // Transition the MSAA image so we can render the main scene into it.
@@ -517,6 +543,8 @@ void VulkanRenderer::drawFrame()
                                    vk::AccessFlagBits::eShaderRead,
                                    vk::AccessFlagBits::eDepthStencilAttachmentRead,
                                    vk::ImageAspectFlagBits::eDepth);
+
+    Debug::endLabel(cmd);
 
     beginDynamicRendering(cmd, m_sceneViewViews[frameIdx], nullptr, extent, true);
     utils::setupViewportAndScissor(cmd, extent);
@@ -705,8 +733,6 @@ void VulkanRenderer::createSampler()
 void VulkanRenderer::createDescriptorSets()
 {
 
-
-
     const auto framesInFlight = m_frameManager->getFramesInFlightCount();
     m_sceneViewImageDescriptorSets.resize(framesInFlight);
     for (int i = 0; i < framesInFlight; ++i)
@@ -768,9 +794,9 @@ void VulkanRenderer::initScene()
     auto planeVerts = generatePlaneVertices(10, 50.0f);
     auto planeInds = generatePlaneIndices(10);
     auto planeMesh = std::make_shared<Mesh>(*m_allocator, planeVerts, planeInds);
-    m_objects.push_back({planeMesh, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f))});
+    m_objects.push_back({planeMesh, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.0f, 0.0f))});
 
-    auto meshDataVec = loadModelFromBinary("monkey.mesh");
+    auto meshDataVec = loadModelFromBinary("../resources/models/thingy.mesh");
 
     if (!meshDataVec.empty())
     {
