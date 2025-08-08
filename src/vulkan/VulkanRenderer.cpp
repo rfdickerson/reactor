@@ -439,7 +439,11 @@ void VulkanRenderer::drawFrame()
 
     beginCommandBuffer(cmd);
 
-    Debug::beginLabel(cmd, "Depth Prepass", {0.8f, 0.4f, 0.2f, 1.0});
+    // Main frame label (Gray)
+    Debug::beginLabel(cmd, "Render Frame", {0.5f, 0.5f, 0.5f, 1.0f});
+
+    // 1. Depth Pre-pass (Light Blue)
+    Debug::beginLabel(cmd, "Depth Pre-pass", {0.2f, 0.6f, 1.0f, 1.0f});
     // get depth image view for this frame
     vk::ImageView depthView = m_depthViews[frameIdx];
 
@@ -458,9 +462,10 @@ void VulkanRenderer::drawFrame()
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_depthPipeline->get());
     drawGeometry(cmd);
     endDynamicRendering(cmd);
-    Debug::endLabel(cmd);
+    Debug::endLabel(cmd); // End Depth Pre-pass
 
-    Debug::beginLabel(cmd, "Shadow Pass", {0.8f, 0.4f, 0.2f, 1.0});
+    // 2. Shadow Pass (Dark Gray)
+    Debug::beginLabel(cmd, "Shadow Pass", {0.3f, 0.3f, 0.3f, 1.0f});
     auto drawFunc = [this](vk::CommandBuffer cmd) { this->drawGeometry(cmd); };
 
     m_shadowMapping->recordShadowPass(cmd, frameIdx, drawFunc);
@@ -473,14 +478,10 @@ void VulkanRenderer::drawFrame()
                                    vk::AccessFlagBits::eDepthStencilAttachmentWrite,
                                    vk::AccessFlagBits::eShaderRead,
                                    vk::ImageAspectFlagBits::eDepth);
-
     Debug::endLabel(cmd);
 
-    Debug::beginLabel(cmd, "Main Pass", {0.8f, 0.4f, 0.2f, 1.0});
-
-    // --- 1. Geometry Pass ---
-    // Transition the MSAA image so we can render the main scene into it.
-    // Its layout was likely UNDEFINED (on first use) or TRANSFER_SRC (from previous frame's resolve).
+    // 3. Main Geometry/Shading Pass (Red)
+    Debug::beginLabel(cmd, "Geometry Pass", {1.0f, 0.3f, 0.3f, 1.0f});
     m_imageStateTracker.transition(cmd,
                                    msaaImage,
                                    vk::ImageLayout::eColorAttachmentOptimal,
@@ -496,12 +497,10 @@ void VulkanRenderer::drawFrame()
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline->get());
     drawGeometry(cmd);
     endDynamicRendering(cmd);
+    Debug::endLabel(cmd); // End Geometry Pass
 
-    // --- 2. MSAA Resolve ---
-    // Resolve the multi-sampled image into a standard image for post-processing.
-    // vkCmdResolveImage requires the source to be TRANSFER_SRC and destination to be TRANSFER_DST.
-
-    // Transition MSAA image from COLOR_ATTACHMENT to TRANSFER_SRC_OPTIMAL to be read by the resolve command.
+    // 4. MSAA Resolve (Purple)
+    Debug::beginLabel(cmd, "MSAA Resolve", {0.7f, 0.4f, 1.0f, 1.0f});
     m_imageStateTracker.transition(cmd,
                                    msaaImage,
                                    vk::ImageLayout::eTransferSrcOptimal,
@@ -520,11 +519,10 @@ void VulkanRenderer::drawFrame()
                                    vk::AccessFlagBits::eTransferWrite);
 
     utils::resolveMSAAImageTo(cmd, msaaImage, resolveImage, width, height);
+    Debug::endLabel(cmd); // End MSAA Resolve
 
-    // --- 3. Composite Pass ---
-    // This pass reads from the resolved image and writes to the swapchain image.
-
-    // Transition the Resolve image from TRANSFER_DST to SHADER_READ_ONLY so it can be used as a texture.
+    // 5. Composite & Post-Processing Pass (Green)
+    Debug::beginLabel(cmd, "Composite Pass", {0.2f, 0.8f, 0.2f, 1.0f});
     m_imageStateTracker.transition(cmd,
                                    resolveImage,
                                    vk::ImageLayout::eShaderReadOnlyOptimal,
@@ -569,8 +567,6 @@ void VulkanRenderer::drawFrame()
                                vk::AccessFlagBits::eDepthStencilAttachmentWrite,
                                vk::AccessFlagBits::eShaderRead,
                                vk::ImageAspectFlagBits::eDepth);
-
-    Debug::endLabel(cmd);
 
     beginDynamicRendering(cmd, m_sceneViewViews[frameIdx], nullptr, extent, true);
     utils::setupViewportAndScissor(cmd, extent);
@@ -618,8 +614,10 @@ void VulkanRenderer::drawFrame()
                            nullptr);
     cmd.draw(3, 1, 0, 0);
     endDynamicRendering(cmd);
+    Debug::endLabel(cmd); // End Composite Pass
 
-    // -- Prepare sceneView for ImGui
+    // 6. UI Pass (Yellow)
+    Debug::beginLabel(cmd, "UI Pass", {1.0f, 0.9f, 0.3f, 1.0f});
     m_imageStateTracker.transition(cmd,
                                    sceneViewImage,
                                    vk::ImageLayout::eShaderReadOnlyOptimal,
@@ -637,17 +635,12 @@ void VulkanRenderer::drawFrame()
                                    {},
                                    vk::AccessFlagBits::eColorAttachmentWrite);
 
-    // --- 4. UI Pass ---
-    // The UI is rendered on top of the composited scene.
-    // The swapchain image is already in COLOR_ATTACHMENT_OPTIMAL, so no transition is needed.
     beginDynamicRendering(cmd, m_swapchain->getImageViews()[imageIndex], nullptr, extent, false);
-
     m_imgui->setSceneDescriptorSet(m_sceneViewImageDescriptorSets[frameIdx]);
     renderUI(cmd);
     endDynamicRendering(cmd);
+    Debug::endLabel(cmd); // End UI Pass
 
-    // --- 5. Prepare for Presentation ---
-    // Transition the swapchain image from COLOR_ATTACHMENT to PRESENT_SRC_KHR for the presentation engine.
     m_imageStateTracker.transition(cmd,
                                    swapchainImage,
                                    vk::ImageLayout::ePresentSrcKHR,
@@ -656,8 +649,9 @@ void VulkanRenderer::drawFrame()
                                    vk::AccessFlagBits::eColorAttachmentWrite,
                                    {});
 
-    endCommandBuffer(cmd);
+    Debug::endLabel(cmd); // End Render Frame
 
+    endCommandBuffer(cmd);
     submitAndPresent(imageIndex);
 }
 
