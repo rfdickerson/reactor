@@ -143,13 +143,11 @@ void VulkanRenderer::createPipelineAndDescriptors()
 
     const std::vector compositeBindings = {
         // binding 0: uInputImage (Texture2D)
-        vk::DescriptorSetLayoutBinding(
-            0, vk::DescriptorType::eSampledImage, 1, vk::ShaderStageFlagBits::eFragment),
+        vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eSampledImage, 1, vk::ShaderStageFlagBits::eFragment),
         // binding 1: CompositeParams (UBO)
         vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
         // binding 2: uDepthImage (Texture2DMS)
-        vk::DescriptorSetLayoutBinding(
-            2, vk::DescriptorType::eSampledImage, 1, vk::ShaderStageFlagBits::eFragment),
+        vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eSampledImage, 1, vk::ShaderStageFlagBits::eFragment),
         // binding 3: g_sampler (SamplerState)
         vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
 
@@ -259,10 +257,11 @@ void VulkanRenderer::submitAndPresent(uint32_t imageIndex)
 
 void VulkanRenderer::beginDynamicRendering(vk::CommandBuffer cmd,
                                            vk::ImageView colorImageView,
+                                           vk::ImageView resolveImageView,
                                            vk::ImageView depthImageView,
                                            vk::Extent2D extent,
-                                           bool clearColor = true,
-                                           bool clearDepth = false)
+                                           bool clearColor,
+                                           bool clearDepth)
 {
     vk::RenderingAttachmentInfo colorAttachment{};
     vk::RenderingAttachmentInfo depthAttachment{};
@@ -282,9 +281,12 @@ void VulkanRenderer::beginDynamicRendering(vk::CommandBuffer cmd,
         colorAttachment.loadOp = clearColor ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad;
         colorAttachment.storeOp = vk::AttachmentStoreOp::eStore;
         colorAttachment.clearValue = clearColorValue;
-        // colorAttachment.resolveImageView = m_resolveViews[m_frameManager->getCurrentFrameIndex()];
-        // colorAttachment.resolveImageLayout = vk::ImageLayout::eColorAttachmentOptimal;
-        // colorAttachment.resolveMode = vk::ResolveModeFlagBits::eAverage;
+        if (resolveImageView)
+        {
+            colorAttachment.resolveImageView = resolveImageView;
+            colorAttachment.resolveImageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+            colorAttachment.resolveMode = vk::ResolveModeFlagBits::eAverage;
+        }
         renderingInfo.colorAttachmentCount = 1;
         renderingInfo.pColorAttachments = &colorAttachment;
     }
@@ -308,7 +310,7 @@ void VulkanRenderer::beginDynamicRendering(vk::CommandBuffer cmd,
             depthAttachment.resolveImageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
             depthAttachment.resolveMode = vk::ResolveModeFlagBits::eAverage;
             // conservative
-            //depthAttachment.resolveMode = vk::ResolveModeFlagBits::eMin;
+            // depthAttachment.resolveMode = vk::ResolveModeFlagBits::eMin;
         }
 
         renderingInfo.pDepthAttachment = &depthAttachment;
@@ -346,6 +348,7 @@ void VulkanRenderer::drawFrame()
     const vk::Image msaaImage = m_msaaImages[frameIdx]->get();
     const vk::ImageView msaaView = m_msaaColorViews[frameIdx];
     const vk::Image resolveImage = m_resolveImages[frameIdx]->get();
+    const vk::ImageView resolveView = m_resolveViews[frameIdx];
     const vk::Image sceneViewImage = m_sceneViewImages[frameIdx]->get();
 
     SceneUBO sceneData{};
@@ -456,7 +459,7 @@ void VulkanRenderer::drawFrame()
                                    vk::AccessFlagBits::eDepthStencilAttachmentWrite,
                                    vk::ImageAspectFlagBits::eDepth);
 
-    beginDynamicRendering(cmd, nullptr, depthView, extent, false, true);
+    beginDynamicRendering(cmd, nullptr, nullptr, depthView, extent, false, true);
     utils::setupViewportAndScissor(cmd, extent);
     bindDescriptorSets(cmd);
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_depthPipeline->get());
@@ -490,8 +493,15 @@ void VulkanRenderer::drawFrame()
                                    {},                                                // Source Access
                                    vk::AccessFlagBits::eColorAttachmentWrite          // Destination Access
     );
+    m_imageStateTracker.transition(cmd,
+                                   resolveImage,
+                                   vk::ImageLayout::eColorAttachmentOptimal,
+                                   vk::PipelineStageFlagBits::eTopOfPipe,
+                                   vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                                   {},
+                                   vk::AccessFlagBits::eColorAttachmentWrite);
 
-    beginDynamicRendering(cmd, msaaView, depthView, extent, true, false);
+    beginDynamicRendering(cmd, msaaView, resolveView, depthView, extent, true, false);
     utils::setupViewportAndScissor(cmd, extent);
     bindDescriptorSets(cmd);
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline->get());
@@ -499,36 +509,14 @@ void VulkanRenderer::drawFrame()
     endDynamicRendering(cmd);
     Debug::endLabel(cmd); // End Geometry Pass
 
-    // 4. MSAA Resolve (Purple)
-    Debug::beginLabel(cmd, "MSAA Resolve", {0.7f, 0.4f, 1.0f, 1.0f});
-    m_imageStateTracker.transition(cmd,
-                                   msaaImage,
-                                   vk::ImageLayout::eTransferSrcOptimal,
-                                   vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                                   vk::PipelineStageFlagBits::eTransfer,
-                                   vk::AccessFlagBits::eColorAttachmentWrite,
-                                   vk::AccessFlagBits::eTransferRead);
-
-    // Transition the Resolve image to TRANSFER_DST_OPTIMAL to be written to by the resolve command.
-    m_imageStateTracker.transition(cmd,
-                                   resolveImage,
-                                   vk::ImageLayout::eTransferDstOptimal,
-                                   vk::PipelineStageFlagBits::eTopOfPipe,
-                                   vk::PipelineStageFlagBits::eTransfer,
-                                   {},
-                                   vk::AccessFlagBits::eTransferWrite);
-
-    utils::resolveMSAAImageTo(cmd, msaaImage, resolveImage, width, height);
-    Debug::endLabel(cmd); // End MSAA Resolve
-
-    // 5. Composite & Post-Processing Pass (Green)
+    // 4. Composite & Post-Processing Pass (Green)
     Debug::beginLabel(cmd, "Composite Pass", {0.2f, 0.8f, 0.2f, 1.0f});
     m_imageStateTracker.transition(cmd,
                                    resolveImage,
                                    vk::ImageLayout::eShaderReadOnlyOptimal,
-                                   vk::PipelineStageFlagBits::eTransfer,
+                                   vk::PipelineStageFlagBits::eColorAttachmentOutput,
                                    vk::PipelineStageFlagBits::eFragmentShader,
-                                   vk::AccessFlagBits::eTransferWrite,
+                                   vk::AccessFlagBits::eColorAttachmentWrite,
                                    vk::AccessFlagBits::eShaderRead);
 
     // Transition the Swapchain image to COLOR_ATTACHMENT_OPTIMAL so we can render the composite result to it.
@@ -560,20 +548,20 @@ void VulkanRenderer::drawFrame()
                                    vk::ImageAspectFlagBits::eDepth);
 
     m_imageStateTracker.transition(cmd,
-                               m_depthResolveImages[frameIdx]->get(),
-                               vk::ImageLayout::eDepthStencilReadOnlyOptimal,
-                               vk::PipelineStageFlagBits::eLateFragmentTests,
-                               vk::PipelineStageFlagBits::eFragmentShader,
-                               vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-                               vk::AccessFlagBits::eShaderRead,
-                               vk::ImageAspectFlagBits::eDepth);
+                                   m_depthResolveImages[frameIdx]->get(),
+                                   vk::ImageLayout::eDepthStencilReadOnlyOptimal,
+                                   vk::PipelineStageFlagBits::eLateFragmentTests,
+                                   vk::PipelineStageFlagBits::eFragmentShader,
+                                   vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+                                   vk::AccessFlagBits::eShaderRead,
+                                   vk::ImageAspectFlagBits::eDepth);
 
-    beginDynamicRendering(cmd, m_sceneViewViews[frameIdx], nullptr, extent, true);
+    beginDynamicRendering(cmd, m_sceneViewViews[frameIdx], nullptr, nullptr, extent, true);
     utils::setupViewportAndScissor(cmd, extent);
 
     vk::DescriptorBufferInfo compositeBufferInfo = m_uniformManager->getDescriptorInfo<CompositeUBO>(frameIdx);
 
-    vk::DescriptorImageInfo resolveImageInfo  = {};
+    vk::DescriptorImageInfo resolveImageInfo = {};
     resolveImageInfo.imageView = m_resolveViews[frameIdx];
     resolveImageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
@@ -589,20 +577,29 @@ void VulkanRenderer::drawFrame()
     writes.reserve(4);
 
     // Write for binding 0
-    writes.emplace_back(m_compositeDescriptorSet->getCurrentSet(frameIdx), 0, 0, 1,
-                        vk::DescriptorType::eSampledImage, &resolveImageInfo);
+    writes.emplace_back(m_compositeDescriptorSet->getCurrentSet(frameIdx),
+                        0,
+                        0,
+                        1,
+                        vk::DescriptorType::eSampledImage,
+                        &resolveImageInfo);
 
     // Write for binding 1
-    writes.emplace_back(m_compositeDescriptorSet->getCurrentSet(frameIdx), 1, 0, 1,
-                        vk::DescriptorType::eUniformBuffer, nullptr, &compositeBufferInfo);
+    writes.emplace_back(m_compositeDescriptorSet->getCurrentSet(frameIdx),
+                        1,
+                        0,
+                        1,
+                        vk::DescriptorType::eUniformBuffer,
+                        nullptr,
+                        &compositeBufferInfo);
 
     // Write for binding 2
-    writes.emplace_back(m_compositeDescriptorSet->getCurrentSet(frameIdx), 2, 0, 1,
-                        vk::DescriptorType::eSampledImage, &depthImageInfo);
+    writes.emplace_back(
+        m_compositeDescriptorSet->getCurrentSet(frameIdx), 2, 0, 1, vk::DescriptorType::eSampledImage, &depthImageInfo);
 
     // Write for binding 3 (This is the crucial fix for the validation error)
-    writes.emplace_back(m_compositeDescriptorSet->getCurrentSet(frameIdx), 3, 0, 1,
-                        vk::DescriptorType::eSampler, &samplerInfo);
+    writes.emplace_back(
+        m_compositeDescriptorSet->getCurrentSet(frameIdx), 3, 0, 1, vk::DescriptorType::eSampler, &samplerInfo);
 
     m_compositeDescriptorSet->updateSet(writes);
 
@@ -616,7 +613,7 @@ void VulkanRenderer::drawFrame()
     endDynamicRendering(cmd);
     Debug::endLabel(cmd); // End Composite Pass
 
-    // 6. UI Pass (Yellow)
+    // 5. UI Pass (Yellow)
     Debug::beginLabel(cmd, "UI Pass", {1.0f, 0.9f, 0.3f, 1.0f});
     m_imageStateTracker.transition(cmd,
                                    sceneViewImage,
@@ -635,7 +632,7 @@ void VulkanRenderer::drawFrame()
                                    {},
                                    vk::AccessFlagBits::eColorAttachmentWrite);
 
-    beginDynamicRendering(cmd, m_swapchain->getImageViews()[imageIndex], nullptr, extent, false);
+    beginDynamicRendering(cmd, m_swapchain->getImageViews()[imageIndex], nullptr, nullptr, extent, false);
     m_imgui->setSceneDescriptorSet(m_sceneViewImageDescriptorSets[frameIdx]);
     renderUI(cmd);
     endDynamicRendering(cmd);
@@ -658,8 +655,7 @@ void VulkanRenderer::drawFrame()
 void VulkanRenderer::createMSAAImage()
 {
     vk::Format format = vk::Format::eR16G16B16A16Sfloat;
-    vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eInputAttachment
-                                | vk::ImageUsageFlagBits::eTransferSrc;
+    vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eInputAttachment;
     size_t framesInFlight = m_frameManager->getFramesInFlightCount();
 
     utils::ImageBuilder builder(m_context->device(), *m_allocator, m_swapchain->getExtent());
@@ -679,8 +675,7 @@ void VulkanRenderer::createMSAAImage()
 void VulkanRenderer::createResolveImages()
 {
     vk::Format format = vk::Format::eR16G16B16A16Sfloat;
-    vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled
-                                | vk::ImageUsageFlagBits::eTransferDst;
+    vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled;
     size_t framesInFlight = m_frameManager->getFramesInFlightCount();
 
     utils::ImageBuilder builder(m_context->device(), *m_allocator, m_swapchain->getExtent());
@@ -796,12 +791,11 @@ void VulkanRenderer::createDepthImages()
     utils::ImageBuilder resolveBuilder(m_context->device(), *m_allocator, m_swapchain->getExtent());
     for (size_t i = 0; i < framesInFlight; ++i)
     {
-        auto built = resolveBuilder
-            .setFormat(format)
-            .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled)
-            .setSamples(vk::SampleCountFlagBits::e1)
-            .setAspectMask(vk::ImageAspectFlagBits::eDepth)
-            .build();
+        auto built = resolveBuilder.setFormat(format)
+                         .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled)
+                         .setSamples(vk::SampleCountFlagBits::e1)
+                         .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                         .build();
         m_depthResolveImages[i] = std::move(built.image);
         m_depthResolveViews[i] = built.view;
         m_imageStateTracker.recordState(m_depthResolveImages[i]->get(), vk::ImageLayout::eUndefined);
