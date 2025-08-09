@@ -111,7 +111,13 @@ private:
 
     void handleSwapchainResizing();
     void beginCommandBuffer(vk::CommandBuffer cmd);
-    void beginDynamicRendering(vk::CommandBuffer cmd, vk::ImageView colorImageView, vk::ImageView depthImageView, vk::Extent2D extent, bool clearColor, bool clearDepth);
+    void beginDynamicRendering(vk::CommandBuffer cmd,
+                               vk::ImageView colorImageView,
+                               vk::ImageView resolveImageView,
+                               vk::ImageView depthImageView,
+                               vk::Extent2D extent,
+                               bool clearColor = true,
+                               bool clearDepth = false);
     void bindDescriptorSets(vk::CommandBuffer cmd);
     void drawGeometry(vk::CommandBuffer cmd);
     void renderUI(vk::CommandBuffer cmd) const;
