@@ -816,6 +816,7 @@ void VulkanRenderer::createDepthPipelineAndDescriptorSets()
                           .setFrontFace(vk::FrontFace::eClockwise) // Match main geometry pipeline
                           .addPushContantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4))
                           .build();
+
 }
 
 void VulkanRenderer::initScene()

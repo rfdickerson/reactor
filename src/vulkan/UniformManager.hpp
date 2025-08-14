@@ -47,7 +47,7 @@ private:
     std::vector<std::unique_ptr<Buffer>> createFrameSpecificBuffers(vk::DeviceSize size);
 
     Allocator& m_allocator;
-    size_t m_framesInFlight;
+    size_t m_framesInFlightCount;
 
     // maps a string name to a vector of buffers (one for each frame of flight)
     std::unordered_map<std::string, std::vector<std::unique_ptr<Buffer>>> m_uniformBuffers;
