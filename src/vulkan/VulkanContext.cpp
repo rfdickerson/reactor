@@ -208,7 +208,9 @@ void VulkanContext::createLogicalDevice() {
         m_presentQueue = m_device.getQueue(indices.presentFamily.value(), 0);
         m_queueFamilies = indices; // Store the found queue families
 
-        m_dldi = vk::detail::DispatchLoaderDynamic(m_instance, vkGetInstanceProcAddr, m_device, vkGetDeviceProcAddr);
+        // do dynamic loading on that device
+        VULKAN_HPP_DEFAULT_DISPATCHER.init(m_device);
+
         spdlog::info("Logical device created");
     } catch (const vk::SystemError& err) {
         std::cerr << "Failed to create logical device: " << err.what() << std::endl;

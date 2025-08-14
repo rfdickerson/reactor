@@ -23,6 +23,24 @@ Imgui::Imgui(VulkanContext& vulkanContext,
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+    io.Fonts->AddFontFromFileTTF("../resources/fonts/Roboto-Medium.ttf", 16.0f);
+
+    float scaleX, scaleY;
+    GLFWwindow* nativeWindow = window.getNativeWindow();
+    glfwGetWindowContentScale(nativeWindow, &scaleX, &scaleY);
+    float hidpiScale = scaleX;
+    spdlog::info("Hidpi scale: {}", hidpiScale);
+    hidpiScale = 1.5;
+
+    if (hidpiScale > 1.0f)
+    {
+        ImGuiStyle& style = ImGui::GetStyle();
+        style.ScaleAllSizes(hidpiScale);
+        io.Fonts->Clear();
+        io.Fonts->AddFontFromFileTTF("../resources/fonts/Roboto-Medium.ttf", 16.0f * hidpiScale);
+    }
+
     ImGui::StyleColorsDark();
 
     // --- Initialize descriptor pool for ImGui ---

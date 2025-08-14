@@ -76,6 +76,12 @@ add_library(ReactorLib STATIC
         src/vulkan/DebugUtils.hpp
 )
 
+target_compile_definitions(ReactorLib PRIVATE
+        VK_NO_PROTOTYPES
+        VMA_STATIC_VULKAN_FUNCTIONS=0
+        VMA_DYNAMIC_VULKAN_FUNCTIONS=1
+)
+#add_compile_definitions(VK_NO_PROTOTYPES)
 target_compile_definitions(ReactorLib PUBLIC GLM_ENABLE_EXPERIMENTAL)
 target_compile_definitions(ReactorLib PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
 

@@ -19,6 +19,12 @@ Allocator::Allocator(vk::PhysicalDevice physicalDevice, vk::Device device, vk::I
     allocatorInfo.device = device;
     allocatorInfo.instance = instance;
 
+    // Tell VMA how to load Vulkan entry points (needed with VK_NO_PROTOTYPES)
+    VmaVulkanFunctions funcs{};
+    funcs.vkGetInstanceProcAddr = VULKAN_HPP_DEFAULT_DISPATCHER.vkGetInstanceProcAddr;
+    funcs.vkGetDeviceProcAddr   = VULKAN_HPP_DEFAULT_DISPATCHER.vkGetDeviceProcAddr;
+    allocatorInfo.pVulkanFunctions = &funcs;
+
     vmaCreateAllocator(&allocatorInfo, &m_allocator);
 
     spdlog::info("Allocator created");
