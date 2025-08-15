@@ -76,6 +76,11 @@ add_library(ReactorLib STATIC
         src/vulkan/DebugUtils.hpp
 )
 
+target_compile_options(ReactorLib PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic -Werror>
+        $<$<CXX_COMPILER_ID:MSVC>:/Wall /WX>
+)
+
 target_compile_definitions(ReactorLib PRIVATE
         VK_NO_PROTOTYPES
         VMA_STATIC_VULKAN_FUNCTIONS=0

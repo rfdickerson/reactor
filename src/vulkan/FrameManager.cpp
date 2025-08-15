@@ -93,7 +93,11 @@ bool FrameManager::beginFrame(vk::SwapchainKHR swapchain, uint32_t& outImageInde
    outImageIndex = resultValue.value;
 
     if (m_imagesInFlight[outImageIndex] != VK_NULL_HANDLE) {
-        m_device.waitForFences(m_imagesInFlight[outImageIndex], VK_TRUE, UINT64_MAX);
+        auto ret = m_device.waitForFences(m_imagesInFlight[outImageIndex], VK_TRUE, UINT64_MAX);
+        if (ret != vk::Result::eSuccess)
+        {
+            throw std::runtime_error("Failed to wait for fence!");
+        }
     }
 
     // Associate the current frame's fence with the acquired swapchain image

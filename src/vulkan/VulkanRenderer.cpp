@@ -193,7 +193,7 @@ VulkanRenderer::~VulkanRenderer()
 
     m_context->device().waitIdle();
 
-    for (auto i = 0; i < m_frameManager->getFramesInFlightCount(); ++i)
+    for (size_t i = 0; i < m_frameManager->getFramesInFlightCount(); ++i)
     {
         m_context->device().destroyImageView(m_msaaColorViews[i]);
         m_context->device().destroyImageView(m_resolveViews[i]);
@@ -747,7 +747,7 @@ void VulkanRenderer::createDescriptorSets()
 
     const auto framesInFlight = m_frameManager->getFramesInFlightCount();
     m_sceneViewImageDescriptorSets.resize(framesInFlight);
-    for (int i = 0; i < framesInFlight; ++i)
+    for (size_t i = 0; i < framesInFlight; ++i)
     {
         m_sceneViewImageDescriptorSets[i] = m_imgui->createDescriptorSet(m_sceneViewViews[i], m_sampler->get());
     }

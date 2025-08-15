@@ -30,9 +30,11 @@ public:
 
 private:
 
-    std::shared_ptr<ImGuiConsoleSink> m_consoleSink;
+
     vk::Device m_device;
     EventManager& m_eventManager;
+    std::shared_ptr<ImGuiConsoleSink> m_consoleSink;
+
     vk::DescriptorPool m_descriptorPool;
 
     vk::DescriptorSet m_sceneImguiId;
