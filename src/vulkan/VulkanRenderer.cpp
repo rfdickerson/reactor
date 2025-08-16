@@ -30,7 +30,7 @@ VulkanRenderer::VulkanRenderer(const RendererConfig& config, Window& window, Cam
     createCoreVulkanObjects();
     createSwapchainAndFrameManager();
 
-    // Setup the Uniform Manager
+    // Set up the Uniform Manager
     m_uniformManager = std::make_unique<UniformManager>(*m_allocator, m_frameManager->getFramesInFlightCount());
     m_uniformManager->registerUBO<SceneUBO>("scene");
     m_uniformManager->registerUBO<CompositeUBO>("composite");
@@ -52,8 +52,7 @@ VulkanRenderer::VulkanRenderer(const RendererConfig& config, Window& window, Cam
     m_imageStateTracker.recordState(m_shadowMapping->shadowMapImage(), vk::ImageLayout::eUndefined);
 }
 
-Allocator& VulkanRenderer::allocator()
-{
+Allocator& VulkanRenderer::allocator() const {
     return *m_allocator;
 }
 
@@ -133,11 +132,11 @@ void VulkanRenderer::createPipelineAndDescriptors()
                      .setDescriptorSetLayouts(setLayouts)
                      .setMultisample(4)
                      .setFrontFace(vk::FrontFace::eClockwise) // Assuming standard winding order for cubes
-                     .addPushContantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4))
+                     .addPushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4))
                      .build();
 
     Debug::setObjectName(m_context->device(),
-                         (uint64_t)(VkPipeline)m_pipeline->get(),
+                         reinterpret_cast<uint64_t>(static_cast<VkPipeline>(m_pipeline->get())),
                          vk::ObjectType::ePipeline,
                          "Main Geometry Pipeline");
 
@@ -167,8 +166,7 @@ void VulkanRenderer::createPipelineAndDescriptors()
                               .build();
 }
 
-void VulkanRenderer::handleSwapchainResizing()
-{
+void VulkanRenderer::handleSwapchainResizing() const {
     if (m_window.wasResized())
     {
         vk::Extent2D size = m_window.getFramebufferSize();
@@ -183,7 +181,7 @@ void VulkanRenderer::handleSwapchainResizing()
     }
 }
 
-void VulkanRenderer::setupUI(std::shared_ptr<ImGuiConsoleSink> consoleSink)
+void VulkanRenderer::setupUI(const std::shared_ptr<ImGuiConsoleSink>& consoleSink)
 {
     m_imgui = std::make_unique<Imgui>(*m_context, m_window, m_window.getEventManager(), consoleSink);
 }
@@ -210,8 +208,7 @@ void VulkanRenderer::beginCommandBuffer(vk::CommandBuffer cmd)
     cmd.begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 }
 
-void VulkanRenderer::bindDescriptorSets(vk::CommandBuffer cmd)
-{
+void VulkanRenderer::bindDescriptorSets(vk::CommandBuffer cmd) const {
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
                            m_pipeline->getLayout(),
                            0,
@@ -219,8 +216,7 @@ void VulkanRenderer::bindDescriptorSets(vk::CommandBuffer cmd)
                            nullptr);
 }
 
-void VulkanRenderer::drawGeometry(vk::CommandBuffer cmd)
-{
+void VulkanRenderer::drawGeometry(vk::CommandBuffer cmd) const {
     for (const auto& obj : m_objects)
     {
         cmd.pushConstants(
@@ -250,8 +246,7 @@ void VulkanRenderer::endCommandBuffer(vk::CommandBuffer cmd)
     cmd.end();
 }
 
-void VulkanRenderer::submitAndPresent(uint32_t imageIndex)
-{
+void VulkanRenderer::submitAndPresent(uint32_t imageIndex) const {
     m_frameManager->endFrame(m_context->graphicsQueue(), m_context->presentQueue(), m_swapchain->get(), imageIndex);
 }
 
@@ -261,8 +256,7 @@ void VulkanRenderer::beginDynamicRendering(vk::CommandBuffer cmd,
                                            vk::ImageView depthImageView,
                                            vk::Extent2D extent,
                                            bool clearColor,
-                                           bool clearDepth)
-{
+                                           bool clearDepth) const {
     vk::RenderingAttachmentInfo colorAttachment{};
     vk::RenderingAttachmentInfo depthAttachment{};
     vk::RenderingInfo renderingInfo{};
@@ -364,15 +358,15 @@ void VulkanRenderer::drawFrame()
     compositeData.uFogDensity = m_imgui->getFogDensity();
     m_uniformManager->update<CompositeUBO>(frameIdx, compositeData);
 
-    m_light.lightDirection = glm::vec4(sin(time), -0.5f, cos(time), 0.0f);
+    m_light.lightDirection = glm::vec4(glm::sin(time), -0.5f, glm::cos(time), 0.0f);
     m_light.lightDirection = glm::normalize(m_light.lightDirection);
 
-    const float orthoSize = 10.0f;
-    const float nearPlane = 0.1f;
-    const float farPlane = 100.0f;
+    constexpr float orthoSize = 10.0f;
+    constexpr float nearPlane = 0.1f;
+    constexpr float farPlane = 100.0f;
     glm::mat4 lightProjection = glm::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, nearPlane, farPlane);
 
-    glm::vec3 lightTarget = glm::vec3(0.0f);
+    auto lightTarget = glm::vec3(0.0f);
     float lightDistance = 20.0f;
     glm::vec3 lightPosition = lightTarget - glm::vec3(m_light.lightDirection) * lightDistance;
     glm::mat4 lightView = glm::lookAt(lightPosition,              // Position of the light in world space
@@ -700,9 +694,9 @@ void VulkanRenderer::createSceneViewImages()
     size_t framesInFlight = m_frameManager->getFramesInFlightCount();
 
     // Destroy old resources if recreating
-    for (size_t i = 0; i < m_sceneViewViews.size(); ++i)
+    for (const auto m_sceneViewView : m_sceneViewViews)
     {
-        m_context->device().destroyImageView(m_sceneViewViews[i]);
+        m_context->device().destroyImageView(m_sceneViewView);
     }
     m_sceneViewImages.clear();
     m_sceneViewViews.clear();
@@ -749,7 +743,7 @@ void VulkanRenderer::createDescriptorSets()
     m_sceneViewImageDescriptorSets.resize(framesInFlight);
     for (size_t i = 0; i < framesInFlight; ++i)
     {
-        m_sceneViewImageDescriptorSets[i] = m_imgui->createDescriptorSet(m_sceneViewViews[i], m_sampler->get());
+        m_sceneViewImageDescriptorSets[i] = Imgui::createDescriptorSet(m_sceneViewViews[i], m_sampler->get());
     }
 }
 void VulkanRenderer::createDepthImages()
@@ -759,9 +753,9 @@ void VulkanRenderer::createDepthImages()
     size_t framesInFlight = m_frameManager->getFramesInFlightCount();
 
     // Destroy old resources if recreating
-    for (size_t i = 0; i < m_depthViews.size(); ++i)
+    for (auto m_depthView : m_depthViews)
     {
-        m_context->device().destroyImageView(m_depthViews[i]);
+        m_context->device().destroyImageView(m_depthView);
     }
     m_depthImages.clear();
     m_depthViews.clear();
@@ -814,16 +808,16 @@ void VulkanRenderer::createDepthPipelineAndDescriptorSets()
                           .setDescriptorSetLayouts(setLayouts)
                           .setMultisample(4)
                           .setFrontFace(vk::FrontFace::eClockwise) // Match main geometry pipeline
-                          .addPushContantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4))
+                          .addPushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4))
                           .build();
 
 }
 
 void VulkanRenderer::initScene()
 {
-    auto planeVerts = generatePlaneVertices(10, 50.0f);
-    auto planeInds = generatePlaneIndices(10);
-    auto planeMesh = std::make_shared<Mesh>(*m_allocator, planeVerts, planeInds);
+    auto planeVertices = generatePlaneVertices(10, 50.0f);
+    auto planeIndices = generatePlaneIndices(10);
+    const auto planeMesh = std::make_shared<Mesh>(*m_allocator, planeVertices, planeIndices);
     m_objects.push_back({planeMesh, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.0f, 0.0f))});
 
     auto meshDataVec = loadModelFromBinary("../resources/models/thingy.mesh");

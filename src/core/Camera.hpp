@@ -47,7 +47,7 @@ private:
     glm::mat4 m_view{1.0f};
     glm::mat4 m_projection{1.0f};
 
-    float m_fov{45.0f}, m_aspect{16.0f / 9.0f}, m_near{0.1f}, m_far{100.0f};
+    float m_fov{45.0f}, m_aspect{16.0f / 9.0f}, m_near{0.1f}, m_far{50.0f};
     float m_left, m_right, m_bottom, m_top;
 
     glm::vec3 m_position{0.0f, 0.0f, 5.0f};

@@ -81,7 +81,7 @@ namespace reactor
         return *this;
     }
 
-    Pipeline::Builder& Pipeline::Builder::addPushContantRange(vk::ShaderStageFlags stages, uint32_t offset, uint32_t size)
+    Pipeline::Builder& Pipeline::Builder::addPushConstantRange(vk::ShaderStageFlags stages, uint32_t offset, uint32_t size)
     {
         m_pushRanges.push_back({stages, offset, size});
         return *this;

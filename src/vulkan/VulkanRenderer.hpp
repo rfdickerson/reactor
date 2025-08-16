@@ -49,7 +49,7 @@ public:
     void drawFrame();
 
     vk::Device device() const;
-    Allocator& allocator();
+    Allocator& allocator() const;
     vk::DescriptorPool descriptorPool() const;
 
 private:
@@ -98,7 +98,7 @@ private:
     void createCoreVulkanObjects();
     void createSwapchainAndFrameManager();
     void createPipelineAndDescriptors();
-    void setupUI(std::shared_ptr<class ImGuiConsoleSink> consoleSink);
+    void setupUI(const std::shared_ptr<class ImGuiConsoleSink>& consoleSink);
     void createMSAAImage();
     void createResolveImages();
     void createSceneViewImages();
@@ -109,21 +109,21 @@ private:
     void initScene();
     void createDescriptorPool();
 
-    void handleSwapchainResizing();
-    void beginCommandBuffer(vk::CommandBuffer cmd);
+    void handleSwapchainResizing() const;
+    static void beginCommandBuffer(vk::CommandBuffer cmd);
     void beginDynamicRendering(vk::CommandBuffer cmd,
                                vk::ImageView colorImageView,
                                vk::ImageView resolveImageView,
                                vk::ImageView depthImageView,
                                vk::Extent2D extent,
                                bool clearColor = true,
-                               bool clearDepth = false);
-    void bindDescriptorSets(vk::CommandBuffer cmd);
-    void drawGeometry(vk::CommandBuffer cmd);
+                               bool clearDepth = false) const;
+    void bindDescriptorSets(vk::CommandBuffer cmd) const;
+    void drawGeometry(vk::CommandBuffer cmd) const;
     void renderUI(vk::CommandBuffer cmd) const;
     static void endDynamicRendering(vk::CommandBuffer cmd);
     static void endCommandBuffer(vk::CommandBuffer cmd);
-    void submitAndPresent(uint32_t imageIndex);
+    void submitAndPresent(uint32_t imageIndex) const;
 };
 
 } // namespace reactor

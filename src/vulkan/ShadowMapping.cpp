@@ -46,7 +46,7 @@ void ShadowMapping::createResources()
 
     m_shadowMap = std::make_unique<Image>(allocator, imageInfo, memoryUsage);
 
-    // 2. Create image view
+    // 2. Create the image view
     vk::ImageViewCreateInfo viewInfo{};
     viewInfo.image = m_shadowMap->get();
     viewInfo.viewType = vk::ImageViewType::e2D;
@@ -73,7 +73,8 @@ void ShadowMapping::createResources()
 
     m_shadowMapSampler = device.createSampler(samplerInfo);
 
-    const size_t frameCount = 2;
+    // TODO: check swapchain for the frame count
+    constexpr size_t frameCount = 2;
     m_mvpBuffer.clear();
     m_mvpBuffer.reserve(frameCount);
     for (size_t i = 0; i < frameCount; ++i)
@@ -110,7 +111,7 @@ void ShadowMapping::createPipeline()
         .setMultisample(1)
         .setCullMode(vk::CullModeFlagBits::eFront)
         .setFrontFace(vk::FrontFace::eClockwise) // Match main geometry pipeline
-        .addPushContantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4));
+        .addPushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4));
 
     m_depthPassPipeline = builder.build();
 }
@@ -124,7 +125,6 @@ void ShadowMapping::createDescriptors()
     // Descriptor set bindings: UBO for light's MVP
     std::vector<vk::DescriptorSetLayoutBinding> bindings = {
         {0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex}
-        // Add more if you want—for example for a sampler or shadow map
     };
 
     // Use your DescriptorSet abstraction to handle layout & Vulkan allocation
@@ -213,8 +213,7 @@ vk::Image ShadowMapping::shadowMapImage() const
     return m_shadowMap->get();
 }
 
-void ShadowMapping::setLightMatrix(const glm::mat4& lightSpaceMatrix, size_t frameIndex)
-{
+void ShadowMapping::setLightMatrix(const glm::mat4& lightSpaceMatrix, size_t frameIndex) const {
     SceneUBO ubo{};
     ubo.view = glm::mat4(1.0f);
     ubo.projection = lightSpaceMatrix;

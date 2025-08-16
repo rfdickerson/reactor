@@ -20,14 +20,14 @@ public:
 
     void recordShadowPass(vk::CommandBuffer cmd, size_t frameIndex, const std::function<void(vk::CommandBuffer)>& drawCallback);
 
-    vk::ImageView shadowMapView() const;
-    vk::Sampler shadowMapSampler() const;
-    vk::DescriptorSet shadowMapDescriptorSet(size_t frameIndex) const;
-    vk::Image shadowMapImage() const;
+    [[nodiscard]] vk::ImageView shadowMapView() const;
+    [[nodiscard]] vk::Sampler shadowMapSampler() const;
+    [[nodiscard]] vk::DescriptorSet shadowMapDescriptorSet(size_t frameIndex) const;
+    [[nodiscard]] vk::Image shadowMapImage() const;
 
-    void setLightMatrix(const glm::mat4& lightMVP, size_t frameIndex);
+    void setLightMatrix(const glm::mat4& lightMVP, size_t frameIndex) const;
 
-    uint32_t resolution() const
+    [[nodiscard]] uint32_t resolution() const
     {
         return m_resolution;
     }
@@ -43,7 +43,7 @@ private:
     VulkanRenderer& m_renderer;
     uint32_t m_resolution;
 
-    // depth image, view, and sampler for shadow map
+    // depth image, view, and sampler for shadowmap
     std::unique_ptr<Image> m_shadowMap;
     vk::ImageView m_shadowMapView;
     vk::Sampler m_shadowMapSampler;
