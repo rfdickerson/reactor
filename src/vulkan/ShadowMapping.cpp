@@ -73,7 +73,6 @@ void ShadowMapping::createResources()
 
     m_shadowMapSampler = device.createSampler(samplerInfo);
 
-    // TODO: check swapchain for the frame count
     constexpr size_t frameCount = 2;
     m_mvpBuffer.clear();
     m_mvpBuffer.reserve(frameCount);
