@@ -4,7 +4,7 @@
 
 #include "DescriptorSet.hpp"
 
-#include "Buffer.hpp"
+#include "buffer.h"
 
 namespace reactor {
 
@@ -33,7 +33,7 @@ namespace reactor {
 
     void DescriptorSet::updateUniformBuffer(size_t frame, const Buffer &buffer) {
         vk::DescriptorBufferInfo bufferInfo;
-        bufferInfo.buffer = buffer.getHandle();
+        bufferInfo.buffer = buffer.GetHandle();
         bufferInfo.offset = 0;
         bufferInfo.range = buffer.size();
 

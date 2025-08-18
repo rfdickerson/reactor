@@ -50,8 +50,8 @@ void VulkanContext::createInstance() {
     };
 
     uint32_t glfwExtensionCount = 0;
-    const char** glfwExtensions;
-    glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+    const char **glfwExtensions =
+        glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
     std::vector extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
@@ -116,7 +116,7 @@ void VulkanContext::createSurface(GLFWwindow *window) {
     throw std::runtime_error("Failed to find a suitable GPU!");
 }
 
-    bool VulkanContext::isDeviceSuitable(vk::PhysicalDevice device) {
+    bool VulkanContext::isDeviceSuitable(vk::PhysicalDevice device) const {
     const QueueFamilyIndices indices = findQueueFamilies(device);
 
     // Basic check for device suitability: does it have a graphics and present queue?

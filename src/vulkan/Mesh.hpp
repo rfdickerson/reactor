@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Buffer.hpp"
+#include "buffer.h"
 #include "Vertex.hpp"
 #include <vector>
 
@@ -24,11 +24,11 @@ public:
 
     vk::Buffer getVertexBuffer() const
     {
-        return m_vertexBuffer->getHandle();
+        return m_vertexBuffer->GetHandle();
     }
     vk::Buffer getIndexBuffer() const
     {
-        return m_indexBuffer->getHandle();
+        return m_indexBuffer->GetHandle();
     }
     uint32_t getIndexCount() const
     {

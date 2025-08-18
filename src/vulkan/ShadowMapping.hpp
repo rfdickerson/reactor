@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Buffer.hpp"
+#include "buffer.h"
 #include "DescriptorSet.hpp"
 #include "Image.hpp"
 #include "Pipeline.hpp"

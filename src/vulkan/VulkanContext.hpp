@@ -42,7 +42,7 @@ private:
     void pickPhysicalDevice();
     void createLogicalDevice();
 
-    bool isDeviceSuitable(vk::PhysicalDevice device);
+    [[nodiscard]] bool isDeviceSuitable(vk::PhysicalDevice device) const;
     [[nodiscard]] QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device) const;
 
     // Member variables - these are owned by the context

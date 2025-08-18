@@ -33,8 +33,8 @@ add_library(ReactorLib STATIC
         src/vulkan/Allocator.cpp
         src/vulkan/Allocator.hpp
         src/vulkan/vk_mem_alloc.cpp
-        src/vulkan/Buffer.cpp
-        src/vulkan/Buffer.hpp
+        src/vulkan/buffer.cc
+        src/vulkan/buffer.h
         src/imgui/Imgui.cpp
         src/imgui/Imgui.hpp
         src/vulkan/VulkanUtils.hpp
@@ -47,8 +47,8 @@ add_library(ReactorLib STATIC
         src/core/Uniforms.hpp
         src/vulkan/UniformManager.cpp
         src/vulkan/UniformManager.hpp
-        src/vulkan/ShaderModule.cpp
-        src/vulkan/ShaderModule.hpp
+        src/vulkan/shader_module.cc
+        src/vulkan/shader_module.h
         src/core/EventManager.hpp
         src/core/EventManager.cpp
         src/core/Camera.cpp

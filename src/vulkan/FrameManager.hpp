@@ -7,7 +7,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include "Buffer.hpp"
+#include "buffer.h"
 
 namespace reactor {
     // Using the Frame struct from our previous discussion

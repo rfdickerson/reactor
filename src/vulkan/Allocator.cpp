@@ -6,7 +6,7 @@
 
 #include <spdlog/spdlog.h>
 
-#include "Buffer.hpp"
+#include "buffer.h"
 
 namespace reactor
 {
@@ -48,9 +48,9 @@ std::unique_ptr<Buffer> Allocator::createBufferWithData(const void* data, vk::De
 
     // Map and copy data to staging buffer
     void* mappedData;
-    vmaMapMemory(m_allocator, stagingBuffer.allocation(), &mappedData);
+    vmaMapMemory(m_allocator, stagingBuffer.GetAllocation(), &mappedData);
     memcpy(mappedData, data, size);
-    vmaUnmapMemory(m_allocator, stagingBuffer.allocation());
+    vmaUnmapMemory(m_allocator, stagingBuffer.GetAllocation());
 
     // Create GPU-local destination buffer
     // Add the transfer destination usage flag
@@ -65,7 +65,7 @@ std::unique_ptr<Buffer> Allocator::createBufferWithData(const void* data, vk::De
     // Perform the copy
     immediateSubmit([&](vk::CommandBuffer cmd) {
         vk::BufferCopy copyRegion(0, 0, size);
-        cmd.copyBuffer(stagingBuffer.getHandle(), destBuffer->getHandle(), 1, &copyRegion);
+        cmd.copyBuffer(stagingBuffer.GetHandle(), destBuffer->GetHandle(), 1, &copyRegion);
     });
 
     return destBuffer;

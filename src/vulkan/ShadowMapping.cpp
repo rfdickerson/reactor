@@ -133,7 +133,7 @@ void ShadowMapping::createDescriptors()
     for (size_t i = 0; i < framesInFlight; ++i)
     {
         vk::DescriptorBufferInfo uboInfo{};
-        uboInfo.buffer = m_mvpBuffer[i]->getHandle();
+        uboInfo.buffer = m_mvpBuffer[i]->GetHandle();
         uboInfo.offset = 0;
         uboInfo.range = sizeof(SceneUBO);
 
@@ -219,9 +219,9 @@ void ShadowMapping::setLightMatrix(const glm::mat4& lightSpaceMatrix, size_t fra
     ubo.lightSpaceMatrix = glm::mat4(1.0f);
 
     // map buffer, copy matrix
-    void* data = m_mvpBuffer[frameIndex]->map();
+    void* data = m_mvpBuffer[frameIndex]->Map();
     memcpy(data, &ubo, sizeof(SceneUBO));
-    m_mvpBuffer[frameIndex]->unmap();
+    m_mvpBuffer[frameIndex]->Unmap();
 }
 
 } // namespace reactor
