@@ -35,6 +35,7 @@ VulkanRenderer::VulkanRenderer(const RendererConfig& config, Window& window, Cam
     m_uniformManager->registerUBO<SceneUBO>("scene");
     m_uniformManager->registerUBO<CompositeUBO>("composite");
     m_uniformManager->registerUBO<DirectionalLightUBO>("lighting");
+    m_uniformManager->registerUBO<ShadowUBO>("shadow");
 
     createDescriptorPool();
     createPipelineAndDescriptors();
@@ -117,8 +118,15 @@ void VulkanRenderer::createPipelineAndDescriptors()
         // Binding 2: Shadow Map Texture (Fragment Shader)
         vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eSampledImage, 1, vk::ShaderStageFlagBits::eFragment),
 
-        // Binding 3: Shadow Map Sampler
+        // Binding 3: Shadow Map Sampler (Comparison)
         vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
+
+        // Binding 4: Shadow Map Sampler (Linear)
+        vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
+
+      // Binding 5: Shadow UBO (Fragment Shader)
+      vk::DescriptorSetLayoutBinding(5, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
+
     };
     m_descriptorSet = std::make_unique<DescriptorSet>(m_context->device(), m_descriptorPool, 2, bindings);
     const std::vector setLayouts = {m_descriptorSet->getLayout()};
@@ -390,17 +398,28 @@ void VulkanRenderer::drawFrame()
     m_uniformManager->update<DirectionalLightUBO>(frameIdx, m_light);
     m_uniformManager->update<SceneUBO>(frameIdx, ubo);
 
+  // Populate the ShadowUBO with data
+  ShadowUBO shadowUboData{};
+  shadowUboData.lightRadiusUV = 0.005f;
+  shadowUboData.blockerSearchSamples = 16;
+  shadowUboData.pcfSamples = 16;
+  shadowUboData.depthBias = 0.005f;
+  m_uniformManager->update<ShadowUBO>(frameIdx, shadowUboData);
+
     // Get descriptor info for both UBOs
     vk::DescriptorBufferInfo sceneBufferInfo = m_uniformManager->getDescriptorInfo<SceneUBO>(frameIdx);
     vk::DescriptorBufferInfo lightBufferInfo = m_uniformManager->getDescriptorInfo<DirectionalLightUBO>(frameIdx);
+  vk::DescriptorBufferInfo shadowBufferInfo = m_uniformManager->getDescriptorInfo<ShadowUBO>(frameIdx);
 
     vk::DescriptorImageInfo shadowMapTextureInfo = {};
-    // shadowMapImageInfo.sampler = m_shadowMapping->shadowMapSampler();
     shadowMapTextureInfo.imageView = m_shadowMapping->shadowMapView();
     shadowMapTextureInfo.imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
 
     vk::DescriptorImageInfo shadowMapSamplerInfo = {};
     shadowMapSamplerInfo.sampler = m_shadowMapping->shadowMapSampler();
+
+    vk::DescriptorImageInfo shadowMapLinearSamplerInfo = {};
+    shadowMapLinearSamplerInfo.sampler = m_sampler->get();
 
     // Create write for Scene UBO at binding 0
     vk::WriteDescriptorSet sceneWrite{};
@@ -432,7 +451,28 @@ void VulkanRenderer::drawFrame()
     shadowMapSamplerWrite.descriptorCount = 1;
     shadowMapSamplerWrite.pImageInfo = &shadowMapSamplerInfo;
 
-    m_descriptorSet->updateSet({sceneWrite, lightWrite, shadowMapTextureWrite, shadowMapSamplerWrite});
+  vk::WriteDescriptorSet shadowMapLinearSamplerWrite{};
+    shadowMapLinearSamplerWrite.dstSet = m_descriptorSet->getCurrentSet(frameIdx);
+    shadowMapLinearSamplerWrite.dstBinding = 4; // Target binding 4
+    shadowMapLinearSamplerWrite.descriptorType = vk::DescriptorType::eSampler;
+    shadowMapLinearSamplerWrite.descriptorCount = 1;
+    shadowMapLinearSamplerWrite.pImageInfo = &shadowMapLinearSamplerInfo;
+
+  vk::WriteDescriptorSet shadowUboWrite{};
+    shadowUboWrite.dstSet = m_descriptorSet->getCurrentSet(frameIdx);
+    shadowUboWrite.dstBinding = 5; // Target binding 5
+    shadowUboWrite.descriptorType = vk::DescriptorType::eUniformBuffer;
+    shadowUboWrite.descriptorCount = 1;
+    shadowUboWrite.pBufferInfo = &shadowBufferInfo;
+
+    m_descriptorSet->updateSet({
+      sceneWrite,
+      lightWrite,
+      shadowMapTextureWrite,
+      shadowMapSamplerWrite,
+      shadowMapLinearSamplerWrite,
+      shadowUboWrite
+    });
 
     beginCommandBuffer(cmd);
 

@@ -101,7 +101,7 @@ void ShadowMapping::createPipeline()
     Pipeline::Builder builder(device);
 
     builder
-        .setVertexShader("../resources/shaders/triangle.vert.spv")
+        .setVertexShader("../resources/shaders/triangle-slang.vert.spv")
         // No fragment shader, we only want depth output
         .setVertexInputFromVertex()
         .setDepthAttachment(vk::Format::eD32Sfloat, true) // depth test and write enabled
