@@ -403,7 +403,7 @@ void VulkanRenderer::drawFrame()
   shadowUboData.lightRadiusUV = 0.005f;
   shadowUboData.blockerSearchSamples = 16;
   shadowUboData.pcfSamples = 16;
-  shadowUboData.depthBias = 0.005f;
+  shadowUboData.depthBias = 0.0008f;
   m_uniformManager->update<ShadowUBO>(frameIdx, shadowUboData);
 
     // Get descriptor info for both UBOs

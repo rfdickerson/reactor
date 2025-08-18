@@ -35,6 +35,22 @@ struct VertexInput
 [[vk::binding(3, 0)]] SamplerComparisonState shadowSampler : register(s2);
 [[vk::binding(4, 0)]] SamplerState shadowSamplerLinear : register(s3);
 
+public interface IBRDF
+{
+    float3 evaluate(float3 normal, float3 lightDir, float3 viewDir, float3 color);
+}
+
+public struct LambertBRDF : IBRDF
+{
+    float3 evaluate(float3 normal, float3 lightDir, float3 viewDir, float3 color)
+    {
+        float NdotL = max(dot(normal, lightDir), 0.0);
+        return color * NdotL;
+    }
+};
+
+float3 getLightDir() { return normalize(-lightDirection.xyz); }
+
 // Helper functions
 float3 computeDiffuse(float3 normal, float3 objectColor)
 {
@@ -70,9 +86,13 @@ GeometryVaryings vertexMain(VertexInput input)
 float4 fragmentMain(GeometryVaryings input) : SV_Target
 {
     float3 objectColor = float3(0.8, 0.8, 0.8);
-
     float3 ambient = computeAmbient(objectColor);
-    float3 diffuse = computeDiffuse(input.normal, objectColor);
+
+    LambertBRDF brdf;
+    float3 lightDir = getLightDir();
+    float3 viewDir = float3(0,0,1);
+
+    float3 diffuse = brdf.evaluate(input.normal, lightDir, viewDir, objectColor) * lightColor.rgb * lightIntensity;
 
     float shadow = calculateShadow(input, shadowMap, shadowSampler, shadowSamplerLinear);
 
