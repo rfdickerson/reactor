@@ -2,13 +2,13 @@
 #include <glm/glm.hpp>
 
 namespace reactor {
-struct SceneUBO {
+struct alignas(16) SceneUBO {
   glm::mat4 view;
   glm::mat4 projection;
   glm::mat4 lightSpaceMatrix;
 };
 
-struct DirectionalLightUBO
+struct alignas(16) DirectionalLightUBO
 {
   glm::vec4 lightDirection = glm::vec4(-0.5f, 1.0f, -0.5f, 0.0f);
   glm::vec4 lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -17,7 +17,7 @@ struct DirectionalLightUBO
   float pad[3];
 };
 
-struct CompositeUBO {
+struct alignas(16) CompositeUBO {
   float uExposure = 1.0f;
   float uContrast = 1.0f;
   float uSaturation = 1.0f;
@@ -26,11 +26,16 @@ struct CompositeUBO {
   float uFogDensity = 0.001f;
 };
 
-struct ShadowUBO
+struct alignas(16) ShadowUBO
 {
   float lightRadiusUV;
   int blockerSearchSamples;
   int pcfSamples;
   float depthBias;
+};
+
+struct alignas(16) ModelPushConstant {
+  glm::mat4 model;
+  glm::vec4 color;
 };
 }

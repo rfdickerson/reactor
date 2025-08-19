@@ -29,6 +29,7 @@ struct VertexInput
 [push_constant] cbuffer PushConstants
 {
     float4x4 model;
+    float4 objectColor;
 };
 
 [[vk::binding(2, 0)]] Texture2D<float> shadowMap;
@@ -85,7 +86,7 @@ GeometryVaryings vertexMain(VertexInput input)
 [shader("fragment")]
 float4 fragmentMain(GeometryVaryings input) : SV_Target
 {
-    float3 objectColor = float3(0.8, 0.8, 0.8);
+    float3 objectColor = objectColor.rgb;
     float3 ambient = computeAmbient(objectColor);
 
     LambertBRDF brdf;

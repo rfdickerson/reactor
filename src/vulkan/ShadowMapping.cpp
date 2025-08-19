@@ -110,7 +110,7 @@ void ShadowMapping::createPipeline()
         .setMultisample(1)
         .setCullMode(vk::CullModeFlagBits::eFront)
         .setFrontFace(vk::FrontFace::eClockwise) // Match main geometry pipeline
-        .addPushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4));
+        .addPushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(ModelPushConstant));
 
     m_depthPassPipeline = builder.build();
 }

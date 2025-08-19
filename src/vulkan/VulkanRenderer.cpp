@@ -15,6 +15,8 @@
 
 namespace reactor
 {
+
+
 VulkanRenderer::VulkanRenderer(const RendererConfig& config, Window& window, Camera& camera)
     : m_config(config), m_window(window), m_camera(camera)
 {
@@ -140,7 +142,7 @@ void VulkanRenderer::createPipelineAndDescriptors()
                      .setDescriptorSetLayouts(setLayouts)
                      .setMultisample(4)
                      .setFrontFace(vk::FrontFace::eClockwise) // Assuming standard winding order for cubes
-                     .addPushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4))
+                     .addPushConstantRange(vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, 0, sizeof(ModelPushConstant))
                      .build();
 
     Debug::setObjectName(m_context->device(),
@@ -227,8 +229,14 @@ void VulkanRenderer::bindDescriptorSets(vk::CommandBuffer cmd) const {
 void VulkanRenderer::drawGeometry(vk::CommandBuffer cmd) const {
     for (const auto& obj : m_objects)
     {
+
+      ModelPushConstant pushConstant{};
+      pushConstant.model = obj.transform;
+      pushConstant.color = obj.color;
+
+      auto stages = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment;
         cmd.pushConstants(
-            m_pipeline->getLayout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4), &obj.transform[0][0]);
+            m_pipeline->getLayout(), stages, 0, sizeof(ModelPushConstant), &pushConstant);
 
         vk::Buffer vbs[] = {obj.mesh->getVertexBuffer()};
         vk::DeviceSize offsets[] = {0};
@@ -848,7 +856,7 @@ void VulkanRenderer::createDepthPipelineAndDescriptorSets()
                           .setDescriptorSetLayouts(setLayouts)
                           .setMultisample(4)
                           .setFrontFace(vk::FrontFace::eClockwise) // Match main geometry pipeline
-                          .addPushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4))
+                          .addPushConstantRange(vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, 0, sizeof(ModelPushConstant))
                           .build();
 
 }
@@ -858,7 +866,7 @@ void VulkanRenderer::initScene()
     auto planeVertices = generatePlaneVertices(10, 50.0f);
     auto planeIndices = generatePlaneIndices(10);
     const auto planeMesh = std::make_shared<Mesh>(*m_allocator, planeVertices, planeIndices);
-    m_objects.push_back({planeMesh, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.0f, 0.0f))});
+    m_objects.push_back({planeMesh, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.0f, 0.0f)), glm::vec4(0.8, 0.8, 0.8, 1.0)});
 
     auto meshDataVec = loadModelFromBinary("../resources/models/thingy.mesh");
 
@@ -866,7 +874,7 @@ void VulkanRenderer::initScene()
     {
         const auto& meshData = meshDataVec[0]; // Use the first mesh for monkey
         auto monkeyMesh = std::make_shared<Mesh>(*m_allocator, meshData.vertices, meshData.indices);
-        m_objects.push_back(RenderObject{monkeyMesh});
+        m_objects.push_back(RenderObject{monkeyMesh, glm::mat4(1.0), glm::vec4(0.4, 0.6, 0.75, 1.0)});
     }
 }
 
