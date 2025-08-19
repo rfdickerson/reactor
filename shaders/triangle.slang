@@ -12,14 +12,14 @@ struct VertexInput
     float2 texCoord : TEXCOORD0; 
 };
 
-[[vk::binding(0, 0)]] cbuffer SceneUBO : register(b0)
+[[vk::binding(0, 0)]] cbuffer SceneUBO
 {
-    matrix view;
-    matrix projection;
-    matrix lightSpaceMatrix;
+    float4x4 view;
+    float4x4 projection;
+    float4x4 lightSpaceMatrix;
 };
 
-[[vk::binding(1, 0)]] cbuffer LightUBO : register(b1)
+[[vk::binding(1, 0)]] cbuffer LightUBO
 {
     float4 lightDirection;
     float4 lightColor;
@@ -28,12 +28,12 @@ struct VertexInput
 
 [push_constant] cbuffer PushConstants
 {
-    matrix model;
+    float4x4 model;
 };
 
-[[vk::binding(2, 0)]] Texture2D<float> shadowMap : register(t2);
-[[vk::binding(3, 0)]] SamplerComparisonState shadowSampler : register(s2);
-[[vk::binding(4, 0)]] SamplerState shadowSamplerLinear : register(s3);
+[[vk::binding(2, 0)]] Texture2D<float> shadowMap;
+[[vk::binding(3, 0)]] SamplerComparisonState shadowSampler;
+[[vk::binding(4, 0)]] SamplerState shadowSamplerLinear;
 
 public interface IBRDF
 {
