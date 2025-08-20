@@ -9,6 +9,16 @@
 #include "DebugUtils.hpp"
 #include "ImageUtils.hpp"
 #include "VulkanUtils.hpp"
+#include "FrameManager.hpp"
+#include "UniformManager.hpp"
+#include "Sampler.hpp"
+#include "ShadowMapping.hpp"
+#include "Swapchain.hpp"
+#include "Mesh.hpp"
+#include "MeshGenerators.hpp"
+#include "../core/Camera.hpp"
+#include "VulkanContext.hpp"
+#include "../imgui/Imgui.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
