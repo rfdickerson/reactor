@@ -36,6 +36,8 @@ struct VertexInput
 [[vk::binding(3, 0)]] SamplerComparisonState shadowSampler;
 [[vk::binding(4, 0)]] SamplerState shadowSamplerLinear;
 
+static const float PI = 3.14159265;
+
 public interface IBRDF
 {
     float3 evaluate(float3 normal, float3 lightDir, float3 viewDir, float3 color);
@@ -43,10 +45,10 @@ public interface IBRDF
 
 public struct LambertBRDF : IBRDF
 {
-    float3 evaluate(float3 normal, float3 lightDir, float3 viewDir, float3 color)
+    public float3 evaluate(float3 normal, float3 lightDir, float3 viewDir, float3 color)
     {
         float NdotL = max(dot(normal, lightDir), 0.0);
-        return color * NdotL;
+        return color * NdotL / PI;
     }
 };
 
