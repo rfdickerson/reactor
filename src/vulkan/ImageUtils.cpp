@@ -4,7 +4,7 @@ namespace reactor::utils
 {
 
 ImageBuilder::ImageBuilder(const vk::Device& device, Allocator& allocator, const vk::Extent2D& defaultExtent)
-    : m_device(device), m_allocator(allocator), m_extent(defaultExtent)
+    : m_device(device), m_allocator(allocator), m_extent(defaultExtent), m_imageInfo{}, m_viewInfo{}
 {
     m_imageInfo.imageType = vk::ImageType::e2D;
     m_imageInfo.extent = vk::Extent3D{m_extent.width, m_extent.height, 1};
@@ -15,12 +15,16 @@ ImageBuilder::ImageBuilder(const vk::Device& device, Allocator& allocator, const
     m_imageInfo.sharingMode = vk::SharingMode::eExclusive;
     m_imageInfo.samples = vk::SampleCountFlagBits::e1;
 
+
     m_viewInfo.viewType = vk::ImageViewType::e2D;
     m_viewInfo.subresourceRange.baseMipLevel = 0;
     m_viewInfo.subresourceRange.levelCount = 1;
     m_viewInfo.subresourceRange.baseArrayLayer = 0;
     m_viewInfo.subresourceRange.layerCount = 1;
     m_viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+    m_viewInfo.components = { vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity,
+                             vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity };
+
 }
 
 ImageBuilder& ImageBuilder::setFormat(vk::Format format)
@@ -51,6 +55,8 @@ ImageBuilder& ImageBuilder::setAspectMask(vk::ImageAspectFlags aspect)
 ImageBuilder::BuiltImage ImageBuilder::build()
 {
     auto image = std::make_unique<Image>(m_allocator, m_imageInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    assert(VULKAN_HPP_DEFAULT_DISPATCHER.vkCreateImageView && "Device fp not loaded");
 
     m_viewInfo.image = image->get();
     vk::ImageView view = m_device.createImageView(m_viewInfo);

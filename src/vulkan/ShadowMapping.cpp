@@ -2,6 +2,7 @@
 
 #include "VulkanRenderer.hpp"
 #include "../core/Uniforms.hpp"
+#include "../logging/Logger.hpp"
 
 namespace reactor
 {
@@ -45,7 +46,7 @@ void ShadowMapping::createResources()
 
     m_shadowMap = std::make_unique<Image>(allocator, imageInfo, memoryUsage);
 
-    // 2. Create image view
+    // 2. Create the image view
     vk::ImageViewCreateInfo viewInfo{};
     viewInfo.image = m_shadowMap->get();
     viewInfo.viewType = vk::ImageViewType::e2D;
@@ -72,7 +73,7 @@ void ShadowMapping::createResources()
 
     m_shadowMapSampler = device.createSampler(samplerInfo);
 
-    const size_t frameCount = 2;
+    constexpr size_t frameCount = 2;
     m_mvpBuffer.clear();
     m_mvpBuffer.reserve(frameCount);
     for (size_t i = 0; i < frameCount; ++i)
@@ -87,7 +88,7 @@ void ShadowMapping::createResources()
 
 void ShadowMapping::createPipeline()
 {
-    spdlog::info("Creating shadow mapping pipeline");
+    LOG_INFO("Creating shadow mapping pipeline");
 
     auto device = m_renderer.device();
 
@@ -100,7 +101,7 @@ void ShadowMapping::createPipeline()
     Pipeline::Builder builder(device);
 
     builder
-        .setVertexShader("../resources/shaders/triangle.vert.spv")
+        .setVertexShader("../resources/shaders/triangle-slang.vert.spv")
         // No fragment shader, we only want depth output
         .setVertexInputFromVertex()
         .setDepthAttachment(vk::Format::eD32Sfloat, true) // depth test and write enabled
@@ -109,7 +110,7 @@ void ShadowMapping::createPipeline()
         .setMultisample(1)
         .setCullMode(vk::CullModeFlagBits::eFront)
         .setFrontFace(vk::FrontFace::eClockwise) // Match main geometry pipeline
-        .addPushContantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4));
+        .addPushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(ModelPushConstant));
 
     m_depthPassPipeline = builder.build();
 }
@@ -123,7 +124,6 @@ void ShadowMapping::createDescriptors()
     // Descriptor set bindings: UBO for light's MVP
     std::vector<vk::DescriptorSetLayoutBinding> bindings = {
         {0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex}
-        // Add more if you want—for example for a sampler or shadow map
     };
 
     // Use your DescriptorSet abstraction to handle layout & Vulkan allocation
@@ -133,7 +133,7 @@ void ShadowMapping::createDescriptors()
     for (size_t i = 0; i < framesInFlight; ++i)
     {
         vk::DescriptorBufferInfo uboInfo{};
-        uboInfo.buffer = m_mvpBuffer[i]->getHandle();
+        uboInfo.buffer = m_mvpBuffer[i]->GetHandle();
         uboInfo.offset = 0;
         uboInfo.range = sizeof(SceneUBO);
 
@@ -212,17 +212,16 @@ vk::Image ShadowMapping::shadowMapImage() const
     return m_shadowMap->get();
 }
 
-void ShadowMapping::setLightMatrix(const glm::mat4& lightSpaceMatrix, size_t frameIndex)
-{
+void ShadowMapping::setLightMatrix(const glm::mat4& lightSpaceMatrix, size_t frameIndex) const {
     SceneUBO ubo{};
     ubo.view = glm::mat4(1.0f);
     ubo.projection = lightSpaceMatrix;
     ubo.lightSpaceMatrix = glm::mat4(1.0f);
 
     // map buffer, copy matrix
-    void* data = m_mvpBuffer[frameIndex]->map();
+    void* data = m_mvpBuffer[frameIndex]->Map();
     memcpy(data, &ubo, sizeof(SceneUBO));
-    m_mvpBuffer[frameIndex]->unmap();
+    m_mvpBuffer[frameIndex]->Unmap();
 }
 
 } // namespace reactor

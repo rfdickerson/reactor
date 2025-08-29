@@ -1,4 +1,6 @@
-#pragma once
+#ifndef SHADER_MODULE_H
+#define SHADER_MODULE_H
+
 #include <vulkan/vulkan.hpp>
 
 namespace reactor
@@ -31,3 +33,5 @@ private:
 };
 
 } // namespace reactor
+
+#endif // SHADER_MODULE_H

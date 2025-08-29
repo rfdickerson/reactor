@@ -2,7 +2,7 @@
 // Created by rfdic on 7/2/2025.
 //
 
-#include "ShaderModule.hpp"
+#include "shader_module.h"
 
 namespace reactor
 {

@@ -1,6 +1,6 @@
 #pragma once
 #include "Allocator.hpp"
-#include "Buffer.hpp"
+#include "buffer.h"
 
 #include <typeindex>
 
@@ -25,9 +25,9 @@ public:
         auto& buffer = m_uniformBuffers.at(name)[frameIndex];
 
         void* mappedData = nullptr;
-        vmaMapMemory(m_allocator.getAllocator(), buffer->allocation(), &mappedData);
+        vmaMapMemory(m_allocator.getAllocator(), buffer->GetAllocation(), &mappedData);
         memcpy(mappedData, &data, sizeof(T));
-        vmaUnmapMemory(m_allocator.getAllocator(), buffer->allocation());
+        vmaUnmapMemory(m_allocator.getAllocator(), buffer->GetAllocation());
     }
 
     // Get the descriptor info need to update a descriptor set.
@@ -37,7 +37,7 @@ public:
         const auto& buffer = m_uniformBuffers.at(name)[frameIndex];
 
         vk::DescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = buffer->getHandle();
+        bufferInfo.buffer = buffer->GetHandle();
         bufferInfo.offset = 0;
         bufferInfo.range = buffer->size();
         return bufferInfo;
@@ -47,7 +47,7 @@ private:
     std::vector<std::unique_ptr<Buffer>> createFrameSpecificBuffers(vk::DeviceSize size);
 
     Allocator& m_allocator;
-    size_t m_framesInFlight;
+    size_t m_framesInFlightCount;
 
     // maps a string name to a vector of buffers (one for each frame of flight)
     std::unordered_map<std::string, std::vector<std::unique_ptr<Buffer>>> m_uniformBuffers;

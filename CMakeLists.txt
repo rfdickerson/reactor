@@ -33,8 +33,8 @@ add_library(ReactorLib STATIC
         src/vulkan/Allocator.cpp
         src/vulkan/Allocator.hpp
         src/vulkan/vk_mem_alloc.cpp
-        src/vulkan/Buffer.cpp
-        src/vulkan/Buffer.hpp
+        src/vulkan/buffer.cc
+        src/vulkan/buffer.h
         src/imgui/Imgui.cpp
         src/imgui/Imgui.hpp
         src/vulkan/VulkanUtils.hpp
@@ -47,8 +47,8 @@ add_library(ReactorLib STATIC
         src/core/Uniforms.hpp
         src/vulkan/UniformManager.cpp
         src/vulkan/UniformManager.hpp
-        src/vulkan/ShaderModule.cpp
-        src/vulkan/ShaderModule.hpp
+        src/vulkan/shader_module.cc
+        src/vulkan/shader_module.h
         src/core/EventManager.hpp
         src/core/EventManager.cpp
         src/core/Camera.cpp
@@ -68,8 +68,25 @@ add_library(ReactorLib STATIC
         src/core/ModelIO.cpp
         src/vulkan/ShadowMapping.hpp
         src/vulkan/ShadowMapping.cpp
+        src/logging/Logger.hpp
+        src/logging/SpdlogSink.cpp
+        src/logging/SpdlogSink.hpp
+        src/logging/ImGuiConsoleSink.cpp
+        src/logging/ImGuiConsoleSink.hpp
+        src/vulkan/DebugUtils.hpp
 )
 
+target_compile_options(ReactorLib PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic -Werror>
+        $<$<CXX_COMPILER_ID:MSVC>:/Wall /WX>
+)
+
+target_compile_definitions(ReactorLib PRIVATE
+        VK_NO_PROTOTYPES
+        VMA_STATIC_VULKAN_FUNCTIONS=0
+        VMA_DYNAMIC_VULKAN_FUNCTIONS=1
+)
+#add_compile_definitions(VK_NO_PROTOTYPES)
 target_compile_definitions(ReactorLib PUBLIC GLM_ENABLE_EXPERIMENTAL)
 target_compile_definitions(ReactorLib PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
 

@@ -5,8 +5,8 @@
 int main()
 {
     // Define input and output paths
-    const std::string inputModel = "../workspace/monkey.obj";
-    const std::string outputModel = "./monkey.mesh";
+    const std::string inputModel = "../workspace/thingy.obj";
+    const std::string outputModel = "../resources/models/thingy.mesh";
 
     // Run the import and export process
     if(reactor::importAndExport(inputModel, outputModel)) {

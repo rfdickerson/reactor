@@ -6,6 +6,7 @@
 #define IMGUI_HPP
 #include "../core/Window.hpp"
 #include "../vulkan/VulkanContext.hpp"
+#include "../logging/ImGuiConsoleSink.hpp"
 
 #include <imgui.h>
 
@@ -13,7 +14,7 @@ namespace reactor {
 
 class Imgui {
 public:
-    Imgui(VulkanContext& vulkanContext, Window& window, EventManager& eventManager);
+    Imgui(VulkanContext& vulkanContext, Window& window, EventManager& eventManager, std::shared_ptr<ImGuiConsoleSink> consoleSink);
     ~Imgui();
 
     void createFrame();
@@ -29,8 +30,11 @@ public:
 
 private:
 
+
     vk::Device m_device;
     EventManager& m_eventManager;
+    std::shared_ptr<ImGuiConsoleSink> m_consoleSink;
+
     vk::DescriptorPool m_descriptorPool;
 
     vk::DescriptorSet m_sceneImguiId;

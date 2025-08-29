@@ -58,11 +58,11 @@ namespace reactor {
         static void cursorPosCallback(GLFWwindow* window, double xpos, double ypos);
 
         GLFWwindow* m_window = nullptr;
-        EventManager& m_eventManager;
         int m_width;
         int m_height;
         std::string m_title;
         bool m_framebufferResized = false;
+        EventManager& m_eventManager;
     };
 
 }

@@ -2,7 +2,7 @@
 #include <fstream>
 #include <stdexcept>
 
-#include "ShaderModule.hpp"
+#include "shader_module.h"
 #include "VulkanUtils.hpp"
 
 namespace reactor
@@ -13,7 +13,7 @@ namespace reactor
         std::ifstream file(filename, std::ios::ate | std::ios::binary);
         if (!file.is_open())
             throw std::runtime_error("Failed to open shader file: " + filename);
-        size_t fileSize = (size_t)file.tellg();
+        size_t fileSize = static_cast<size_t>(file.tellg());
         std::vector<char> buffer(fileSize);
         file.seekg(0);
         file.read(buffer.data(), fileSize);
@@ -81,7 +81,7 @@ namespace reactor
         return *this;
     }
 
-    Pipeline::Builder& Pipeline::Builder::addPushContantRange(vk::ShaderStageFlags stages, uint32_t offset, uint32_t size)
+    Pipeline::Builder& Pipeline::Builder::addPushConstantRange(vk::ShaderStageFlags stages, uint32_t offset, uint32_t size)
     {
         m_pushRanges.push_back({stages, offset, size});
         return *this;

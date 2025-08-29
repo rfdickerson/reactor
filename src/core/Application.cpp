@@ -2,6 +2,9 @@
 
 namespace reactor {
 
+const int WINDOW_WIDTH = 1920;
+const int WINDOW_HEIGHT = 1080;
+
  Application::Application() {
      initialize();
  }
@@ -11,7 +14,7 @@ Application::~Application() = default;
 void Application::initialize() {
     m_eventManager = std::make_unique<EventManager>();
 
-    m_window = std::make_unique<Window>(1280, 720, "Reactor", *m_eventManager);
+    m_window = std::make_unique<Window>(WINDOW_WIDTH, WINDOW_HEIGHT, "Reactor", *m_eventManager);
     m_camera = std::make_unique<Camera>();
     m_orbitController = std::make_unique<OrbitController>(*m_camera);
     m_orbitController->setSimCityView(20.0f, 45.0f);
@@ -22,13 +25,13 @@ void Application::initialize() {
     m_eventManager->subscribe(EventType::MouseButtonReleased, m_orbitController.get());
 
     RendererConfig config{
-        .windowWidth = 1280,
-        .windowHeight = 720,
+        .windowWidth = WINDOW_WIDTH,
+        .windowHeight = WINDOW_HEIGHT,
         .windowTitle = "Reactor",
-        .vertShaderPath = "../resources/shaders/triangle.vert.spv",
-        .fragShaderPath = "../resources/shaders/triangle.frag.spv",
-        .compositeVertShaderPath = "../resources/shaders/composite.vert.spv",
-        .compositeFragShaderPath = "../resources/shaders/composite.frag.spv"
+        .vertShaderPath = "../resources/shaders/triangle-slang.vert.spv",
+        .fragShaderPath = "../resources/shaders/triangle-slang.frag.spv",
+        .compositeVertShaderPath = "../resources/shaders/composite-slang.vert.spv",
+        .compositeFragShaderPath = "../resources/shaders/composite-slang.frag.spv"
     };
 
     m_renderer = std::make_unique<VulkanRenderer>(config, *m_window, *m_camera);

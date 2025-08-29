@@ -15,7 +15,7 @@ namespace reactor
         class Builder
         {
         public:
-            Builder(vk::Device device);
+            explicit Builder(vk::Device device);
 
             Builder& setVertexShader(const std::string& shaderPath);
             Builder& setFragmentShader(const std::string& shaderPath);
@@ -26,7 +26,7 @@ namespace reactor
             Builder& setMultisample(uint32_t samples);
             Builder& setCullMode(vk::CullModeFlags cullMode);
             Builder& setFrontFace(vk::FrontFace frontFace);
-            Builder& addPushContantRange(vk::ShaderStageFlags stages, uint32_t offset, uint32_t size);
+            Builder& addPushConstantRange(vk::ShaderStageFlags stages, uint32_t offset, uint32_t size);
             Builder& enableDepthBias(bool enable=true);
 
             [[nodiscard]] std::unique_ptr<Pipeline> build() const;

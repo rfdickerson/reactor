@@ -58,6 +58,8 @@ void OrbitController::onEvent(const Event &event) {
          break;
      case EventType::KeyPressed:
          break;
+     case EventType::KeyReleased:
+         break;
      }
  }
 

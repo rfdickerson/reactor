@@ -6,7 +6,7 @@
 
 #include <spdlog/spdlog.h>
 
-#include "Buffer.hpp"
+#include "buffer.h"
 
 namespace reactor
 {
@@ -18,6 +18,12 @@ Allocator::Allocator(vk::PhysicalDevice physicalDevice, vk::Device device, vk::I
     allocatorInfo.physicalDevice = physicalDevice;
     allocatorInfo.device = device;
     allocatorInfo.instance = instance;
+
+    // Tell VMA how to load Vulkan entry points (needed with VK_NO_PROTOTYPES)
+    VmaVulkanFunctions funcs{};
+    funcs.vkGetInstanceProcAddr = VULKAN_HPP_DEFAULT_DISPATCHER.vkGetInstanceProcAddr;
+    funcs.vkGetDeviceProcAddr   = VULKAN_HPP_DEFAULT_DISPATCHER.vkGetDeviceProcAddr;
+    allocatorInfo.pVulkanFunctions = &funcs;
 
     vmaCreateAllocator(&allocatorInfo, &m_allocator);
 
@@ -42,9 +48,9 @@ std::unique_ptr<Buffer> Allocator::createBufferWithData(const void* data, vk::De
 
     // Map and copy data to staging buffer
     void* mappedData;
-    vmaMapMemory(m_allocator, stagingBuffer.allocation(), &mappedData);
+    vmaMapMemory(m_allocator, stagingBuffer.GetAllocation(), &mappedData);
     memcpy(mappedData, data, size);
-    vmaUnmapMemory(m_allocator, stagingBuffer.allocation());
+    vmaUnmapMemory(m_allocator, stagingBuffer.GetAllocation());
 
     // Create GPU-local destination buffer
     // Add the transfer destination usage flag
@@ -59,7 +65,7 @@ std::unique_ptr<Buffer> Allocator::createBufferWithData(const void* data, vk::De
     // Perform the copy
     immediateSubmit([&](vk::CommandBuffer cmd) {
         vk::BufferCopy copyRegion(0, 0, size);
-        cmd.copyBuffer(stagingBuffer.getHandle(), destBuffer->getHandle(), 1, &copyRegion);
+        cmd.copyBuffer(stagingBuffer.GetHandle(), destBuffer->GetHandle(), 1, &copyRegion);
     });
 
     return destBuffer;

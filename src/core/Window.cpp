@@ -1,4 +1,7 @@
 #include "Window.hpp"
+
+#include "../logging/Logger.hpp"
+
 #include <stdexcept>
 
 namespace reactor {
@@ -67,10 +70,15 @@ m_width(width), m_height(height), m_title(title), m_eventManager(eventManager) {
             // Set the flag indicating that a resize has occurred.
             windowInstance->m_framebufferResized = true;
         }
+
+        LOG_INFO("Resized to {} {}", width, height);
     }
+
     void Window::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
         auto* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
         if (!windowInstance) return;
+
+        LOG_INFO("Key {} pressed, {} scancode, {} mods", key, scancode, mods);
 
         Event event{};
         if (action == GLFW_PRESS) {
@@ -88,6 +96,8 @@ m_width(width), m_height(height), m_title(title), m_eventManager(eventManager) {
     void Window::mouseButtonCallback(GLFWwindow *window, int button, int action, int mods) {
         auto* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
         if (!windowInstance) return;
+
+        LOG_INFO("Mouse button {} pressed, {} mods", button, mods);
 
         Event event{};
         if (action == GLFW_PRESS) {

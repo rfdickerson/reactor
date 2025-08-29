@@ -2,7 +2,9 @@
 
 #include <set>
 
-#include <spdlog/spdlog.h>
+#include "../logging/Logger.hpp"
+
+VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 namespace {
 void printVulkanVersion() {
@@ -11,7 +13,7 @@ void printVulkanVersion() {
         uint32_t major = VK_VERSION_MAJOR(vulkanApiVersion);
         uint32_t minor = VK_VERSION_MINOR(vulkanApiVersion);
         uint32_t patch = VK_VERSION_PATCH(vulkanApiVersion);
-        spdlog::info("Vulkan API version: {}.{}.{}", major, minor, patch);
+        LOG_INFO("Vulkan API version: {}.{}.{}", major, minor, patch);
     } else {
         spdlog::error("Failed to enumerate Vulkan API version");
     }
@@ -36,6 +38,9 @@ VulkanContext::~VulkanContext() {
 }
 
 void VulkanContext::createInstance() {
+
+    VULKAN_HPP_DEFAULT_DISPATCHER.init( );
+
     constexpr vk::ApplicationInfo appInfo {
         "Reactor App",
         1,
@@ -45,8 +50,8 @@ void VulkanContext::createInstance() {
     };
 
     uint32_t glfwExtensionCount = 0;
-    const char** glfwExtensions;
-    glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+    const char **glfwExtensions =
+        glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
     std::vector extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
@@ -55,6 +60,8 @@ void VulkanContext::createInstance() {
     #ifdef __APPLE__
     extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
     #endif
+
+    extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
     vk::InstanceCreateInfo createInfo {};
     createInfo.pApplicationInfo = &appInfo;
@@ -68,6 +75,7 @@ void VulkanContext::createInstance() {
         m_instance = vk::createInstance(createInfo);
         spdlog::info("Vulkan instance created");
         printVulkanVersion();
+        VULKAN_HPP_DEFAULT_DISPATCHER.init( m_instance );
 
     } catch (const vk::SystemError& err) {
         std::cerr << "Failed to create Vulkan instance: " << err.what() << std::endl;
@@ -108,7 +116,7 @@ void VulkanContext::createSurface(GLFWwindow *window) {
     throw std::runtime_error("Failed to find a suitable GPU!");
 }
 
-    bool VulkanContext::isDeviceSuitable(vk::PhysicalDevice device) {
+    bool VulkanContext::isDeviceSuitable(vk::PhysicalDevice device) const {
     const QueueFamilyIndices indices = findQueueFamilies(device);
 
     // Basic check for device suitability: does it have a graphics and present queue?
@@ -167,6 +175,12 @@ void VulkanContext::createLogicalDevice() {
     vk::PhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures{};
     dynamicRenderingFeatures.dynamicRendering = VK_TRUE;
 
+    // create struct for Vulkan 1.1 features
+    vk::PhysicalDeviceVulkan11Features vulkan11Features{};
+    vulkan11Features.shaderDrawParameters = VK_TRUE;
+
+    dynamicRenderingFeatures.pNext = &vulkan11Features;
+
     std::vector<const char*> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         // VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME
@@ -193,6 +207,9 @@ void VulkanContext::createLogicalDevice() {
         m_graphicsQueue = m_device.getQueue(indices.graphicsFamily.value(), 0);
         m_presentQueue = m_device.getQueue(indices.presentFamily.value(), 0);
         m_queueFamilies = indices; // Store the found queue families
+
+        // do dynamic loading on that device
+        VULKAN_HPP_DEFAULT_DISPATCHER.init(m_device);
 
         spdlog::info("Logical device created");
     } catch (const vk::SystemError& err) {

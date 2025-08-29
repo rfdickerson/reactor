@@ -49,14 +49,14 @@ Mesh::Mesh(Allocator& allocator, const std::vector<Vertex>& vertices, const std:
     // Staging buffers (CPU-visible)
     Buffer stagingVertex(allocator, vertexSize, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_TO_GPU, "Staging Vertex");
     void* data;
-    vmaMapMemory(allocator.getAllocator(), stagingVertex.allocation(), &data);
+    vmaMapMemory(allocator.getAllocator(), stagingVertex.GetAllocation(), &data);
     memcpy(data, vertices.data(), static_cast<size_t>(vertexSize));
-    vmaUnmapMemory(allocator.getAllocator(), stagingVertex.allocation());
+    vmaUnmapMemory(allocator.getAllocator(), stagingVertex.GetAllocation());
 
     Buffer stagingIndex(allocator, indexSize, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_TO_GPU, "Staging Index");
-    vmaMapMemory(allocator.getAllocator(), stagingIndex.allocation(), &data);
+    vmaMapMemory(allocator.getAllocator(), stagingIndex.GetAllocation(), &data);
     memcpy(data, indices.data(), static_cast<size_t>(indexSize));
-    vmaUnmapMemory(allocator.getAllocator(), stagingIndex.allocation());
+    vmaUnmapMemory(allocator.getAllocator(), stagingIndex.GetAllocation());
 
     // GPU buffers (device-local)
     m_vertexBuffer = std::make_unique<Buffer>(allocator, vertexSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer, VMA_MEMORY_USAGE_GPU_ONLY, "Vertex Buffer");
@@ -69,13 +69,13 @@ Mesh::Mesh(Allocator& allocator, const std::vector<Vertex>& vertices, const std:
         vertexCopyRegion.srcOffset = 0;
         vertexCopyRegion.dstOffset = 0;
         vertexCopyRegion.size = vertexSize;
-        cmd.copyBuffer(stagingVertex.getHandle(), m_vertexBuffer->getHandle(), 1, &vertexCopyRegion);
+        cmd.copyBuffer(stagingVertex.GetHandle(), m_vertexBuffer->GetHandle(), 1, &vertexCopyRegion);
 
         vk::BufferCopy indexCopyRegion{};
         indexCopyRegion.srcOffset = 0;
         indexCopyRegion.dstOffset = 0;
         indexCopyRegion.size = indexSize;
-        cmd.copyBuffer(stagingIndex.getHandle(), m_indexBuffer->getHandle(), 1, &indexCopyRegion);
+        cmd.copyBuffer(stagingIndex.GetHandle(), m_indexBuffer->GetHandle(), 1, &indexCopyRegion);
     });
 
 

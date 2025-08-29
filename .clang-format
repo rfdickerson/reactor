@@ -1,39 +1,61 @@
----
-Language: Cpp
-BasedOnStyle: LLVM
-IndentWidth: 4
-TabWidth: 4
+# Start from Google C++ Style
+BasedOnStyle: Google
+
+# General formatting
+IndentWidth: 2
+TabWidth: 2
 UseTab: Never
-ColumnLimit: 120  # No forced wrapping; useful for long VulkanHpp calls
-AccessModifierOffset: -4
-AlignAfterOpenBracket: Align
-AlignConsecutiveAssignments: false
-AlignConsecutiveDeclarations: false
-AllowShortBlocksOnASingleLine: false
-AllowShortFunctionsOnASingleLine: None
+ColumnLimit: 80
+
+# Braces and indentation
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
-AlwaysBreakTemplateDeclarations: Yes
-BinPackArguments: false
-BinPackParameters: false
-BreakBeforeBinaryOperators: NonAssignment
-BreakBeforeBraces: Custom
-BraceWrapping:
-  AfterClass: true
-  AfterControlStatement: true
-  AfterEnum: true
-  AfterFunction: true
-  AfterNamespace: true
-  AfterStruct: true
-  AfterUnion: true
-  BeforeCatch: true
-  BeforeElse: true
-  IndentBraces: false
-  SplitEmptyFunction: false
-  SplitEmptyRecord: false
-Cpp11BracedListStyle: true
+
+# Spaces
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesInAngles: false
+SpacesInCStyleCastParentheses: false
+SpacesInContainerLiterals: true
+
+# Pointer and reference alignment
 DerivePointerAlignment: false
-NamespaceIndentation: None
 PointerAlignment: Left
+ReferenceAlignment: Left
+
+# Includes
+IncludeBlocks: Regroup
 SortIncludes: true
-IncludeBlocks: Preserve
+IncludeCategories:
+  - Regex: '^<.*\.h>'
+    Priority: 1
+  - Regex: '^<.*>'
+    Priority: 2
+  - Regex: '.*'
+    Priority: 3
+
+# Namespace formatting
+NamespaceIndentation: None
+IndentNamespace: None
+
+# Comments
+CommentPragmas: '^ IWYU pragma:'
+
+# C++ specifics
+Standard: Cpp17
+AccessModifierOffset: -1
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+ConstructorInitializerIndentWidth: 2
+
+# Alignments
+AlignAfterOpenBracket: Align
+AlignOperands:   true
+AlignTrailingComments: true
+
+# Others
+BinPackArguments: true
+BinPackParameters: true
+Cpp11BracedListStyle: true
+ReflowComments: true
