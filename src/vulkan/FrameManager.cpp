@@ -1,5 +1,6 @@
 #include "FrameManager.hpp"
 
+#include <array>
 #include <stdexcept>
 #include <vector>
 
@@ -25,8 +26,6 @@ FrameManager::FrameManager(vk::Device device, Allocator& allocator, uint32_t com
             1
         };
         frame.commandBuffer = m_device.allocateCommandBuffers(allocInfo)[0];
-        vk::FenceCreateInfo fenceInfo{vk::FenceCreateFlagBits::eSignaled};
-        frame.inFlightFence = m_device.createFence(fenceInfo);
 
         // create a uniform buffer
         frame.uniformBuffer = std::make_unique<Buffer>(allocator, 1024, vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_CPU_ONLY);
@@ -44,7 +43,16 @@ FrameManager::FrameManager(vk::Device device, Allocator& allocator, uint32_t com
         m_renderFinishedSemaphores[i] = m_device.createSemaphore(semaphoreInfo);
     }
 
-    m_imagesInFlight.resize(swapchainImageCount, VK_NULL_HANDLE);
+    vk::SemaphoreTypeCreateInfo timelineCreateInfo{};
+    timelineCreateInfo.semaphoreType = vk::SemaphoreType::eTimeline;
+    timelineCreateInfo.initialValue = 0;
+
+    vk::SemaphoreCreateInfo timelineSemaphoreInfo{};
+    timelineSemaphoreInfo.pNext = &timelineCreateInfo;
+
+    m_renderTimelineSemaphore = m_device.createSemaphore(timelineSemaphoreInfo);
+
+    m_imagesInFlight.resize(swapchainImageCount, 0);
 
 }
 
@@ -59,10 +67,8 @@ FrameManager::~FrameManager() {
         m_device.destroySemaphore(semaphore);
     }
 
-    for (auto& frame : m_frames) {
-        if (frame.inFlightFence) {
-            m_device.destroyFence(frame.inFlightFence);
-        }
+    if (m_renderTimelineSemaphore) {
+        m_device.destroySemaphore(m_renderTimelineSemaphore);
     }
 
     if (m_commandPool) {
@@ -71,9 +77,21 @@ FrameManager::~FrameManager() {
 }
 
 bool FrameManager::beginFrame(vk::SwapchainKHR swapchain, uint32_t& outImageIndex) {
-   vk::Result result = m_device.waitForFences(m_frames[m_currentFrame].inFlightFence, VK_TRUE, UINT64_MAX);
-    if (result != vk::Result::eSuccess) {
-        throw std::runtime_error("Failed to wait for fence!");
+    Frame& frame = m_frames[m_currentFrame];
+
+    if (frame.timelineValue > 0) {
+        uint64_t waitValue = frame.timelineValue;
+        vk::SemaphoreWaitInfo waitInfo{};
+        waitInfo.semaphoreCount = 1;
+        waitInfo.pSemaphores = &m_renderTimelineSemaphore;
+        waitInfo.pValues = &waitValue;
+
+        vk::Result result = m_device.waitSemaphores(waitInfo, UINT64_MAX);
+        if (result != vk::Result::eSuccess) {
+            throw std::runtime_error("Failed to wait for timeline semaphore!");
+        }
+
+        frame.timelineValue = 0;
     }
 
     auto resultValue = m_device.acquireNextImageKHR(
@@ -92,18 +110,20 @@ bool FrameManager::beginFrame(vk::SwapchainKHR swapchain, uint32_t& outImageInde
 
    outImageIndex = resultValue.value;
 
-    if (m_imagesInFlight[outImageIndex] != VK_NULL_HANDLE) {
-        auto ret = m_device.waitForFences(m_imagesInFlight[outImageIndex], VK_TRUE, UINT64_MAX);
-        if (ret != vk::Result::eSuccess)
-        {
-            throw std::runtime_error("Failed to wait for fence!");
+    if (m_imagesInFlight[outImageIndex] > 0) {
+        uint64_t waitValue = m_imagesInFlight[outImageIndex];
+        vk::SemaphoreWaitInfo waitInfo{};
+        waitInfo.semaphoreCount = 1;
+        waitInfo.pSemaphores = &m_renderTimelineSemaphore;
+        waitInfo.pValues = &waitValue;
+
+        vk::Result result = m_device.waitSemaphores(waitInfo, UINT64_MAX);
+        if (result != vk::Result::eSuccess) {
+            throw std::runtime_error("Failed to wait for timeline semaphore!");
         }
+
+        m_imagesInFlight[outImageIndex] = 0;
     }
-
-    // Associate the current frame's fence with the acquired swapchain image
-    m_imagesInFlight[outImageIndex] = m_frames[m_currentFrame].inFlightFence;
-
-    m_device.resetFences(m_frames[m_currentFrame].inFlightFence);
 
     return true;
 }
@@ -113,14 +133,30 @@ void FrameManager::endFrame(vk::Queue graphicsQueue, vk::Queue presentQueue, vk:
 
     vk::PipelineStageFlags waitStages = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 
+    std::array<vk::Semaphore, 2> signalSemaphores{m_renderFinishedSemaphores[imageIndex], m_renderTimelineSemaphore};
+
     vk::SubmitInfo submitInfo{
         1, &m_imageAvailableSemaphores[m_currentFrame],
         &waitStages,
         1, &frame.commandBuffer,
-        1, &m_renderFinishedSemaphores[imageIndex]
+        static_cast<uint32_t>(signalSemaphores.size()), signalSemaphores.data()
     };
 
-    graphicsQueue.submit(submitInfo, frame.inFlightFence);
+    uint64_t waitValues[] = {0};
+    std::array<uint64_t, 2> signalValues{0, ++m_nextTimelineValue};
+
+    vk::TimelineSemaphoreSubmitInfo timelineInfo{};
+    timelineInfo.waitSemaphoreValueCount = 1;
+    timelineInfo.pWaitSemaphoreValues = waitValues;
+    timelineInfo.signalSemaphoreValueCount = static_cast<uint32_t>(signalValues.size());
+    timelineInfo.pSignalSemaphoreValues = signalValues.data();
+
+    submitInfo.pNext = &timelineInfo;
+
+    graphicsQueue.submit(submitInfo, vk::Fence());
+
+    frame.timelineValue = signalValues.back();
+    m_imagesInFlight[imageIndex] = frame.timelineValue;
 
     vk::PresentInfoKHR presentInfo{
         1, &m_renderFinishedSemaphores[imageIndex],

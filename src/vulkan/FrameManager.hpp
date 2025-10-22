@@ -5,6 +5,9 @@
 #ifndef FRAMEMANAGER_HPP
 #define FRAMEMANAGER_HPP
 
+#include <cstdint>
+#include <memory>
+#include <vector>
 #include <vulkan/vulkan.hpp>
 
 #include "buffer.h"
@@ -13,7 +16,7 @@ namespace reactor {
     // Using the Frame struct from our previous discussion
     struct Frame {
         vk::CommandBuffer commandBuffer;
-        vk::Fence inFlightFence;
+        uint64_t timelineValue = 0;
         vk::DescriptorSet cameraDescriptorSet;
         std::unique_ptr<Buffer> uniformBuffer;
     };
@@ -44,7 +47,9 @@ namespace reactor {
         std::vector<Frame> m_frames;
         std::vector<vk::Semaphore> m_imageAvailableSemaphores;
         std::vector<vk::Semaphore> m_renderFinishedSemaphores;
-        std::vector<vk::Fence> m_imagesInFlight;
+        vk::Semaphore m_renderTimelineSemaphore;
+        std::vector<uint64_t> m_imagesInFlight;
+        uint64_t m_nextTimelineValue = 0;
         size_t m_currentFrame;
         size_t m_framesInFlightCount;
     };
