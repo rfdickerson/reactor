@@ -179,7 +179,11 @@ void VulkanContext::createLogicalDevice() {
     vk::PhysicalDeviceVulkan11Features vulkan11Features{};
     vulkan11Features.shaderDrawParameters = VK_TRUE;
 
-    dynamicRenderingFeatures.pNext = &vulkan11Features;
+    vk::PhysicalDeviceTimelineSemaphoreFeatures timelineSemaphoreFeatures{};
+    timelineSemaphoreFeatures.timelineSemaphore = VK_TRUE;
+
+    dynamicRenderingFeatures.pNext = &timelineSemaphoreFeatures;
+    timelineSemaphoreFeatures.pNext = &vulkan11Features;
 
     std::vector<const char*> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
